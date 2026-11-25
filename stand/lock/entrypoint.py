@@ -40,13 +40,19 @@ def main() -> int:
         changed = False
     print("yse-lock hook %s" % ("installed" if changed else "already"), flush=True)
     panel = start_panel()
+    scan = None
+    scan_path = "/opt/yse-lock/scan_columns.py"
+    if os.path.isfile(scan_path):
+        scan = subprocess.Popen([sys.executable, scan_path])
+        print("yse-scan pid=%s" % scan.pid, flush=True)
     os.chdir("/opt/lite-kit")
     equasar = subprocess.Popen(
         [sys.executable, "/opt/lite-kit/scripts/equasar_server.py", "--dns"],
     )
     code = equasar.wait()
-    if panel is not None and panel.poll() is None:
-        panel.terminate()
+    for proc in (panel, scan):
+        if proc is not None and proc.poll() is None:
+            proc.terminate()
     return code
 
 

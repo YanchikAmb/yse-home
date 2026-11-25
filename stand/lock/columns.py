@@ -81,6 +81,10 @@ def _gateway_ips() -> set:
     return ips
 
 
+def skip_ips() -> set:
+    return _own_ips() | _gateway_ips()
+
+
 def _column_platform(platform: str) -> str:
     if platform in TITLES or platform.startswith("yandex"):
         return platform
