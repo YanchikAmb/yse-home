@@ -18,7 +18,7 @@ STATE_DIR.mkdir(parents=True, exist_ok=True)
 BOOT_ID_FILE = STATE_DIR / "last_boot_id"
 DONE_FILE = STATE_DIR / "done_boot_id"
 ATTEMPT_FILE = STATE_DIR / "attempted_boot_id"
-ROOT_D = Path(os.environ.get("YSE_AUTOROOT_ROOT", "/home/administrator/s905x2-root"))
+ROOT_D = Path(os.environ.get("YSE_AUTOROOT_ROOT", "/storage/yse/s905x2-root"))
 NDK = os.environ.get("YSE_AUTOROOT_NDK", "/home/administrator/android-ndk-r26d")
 LOCK_BIN = Path(os.environ.get("YSE_AUTOROOT_LOCK", "/home/administrator/yse-stand/lock/bin"))
 AUTH_PUB = os.environ.get("YSE_AUTOROOT_KEY", "/home/administrator/.ssh/secretary_backup.pub")

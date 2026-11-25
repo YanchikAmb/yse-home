@@ -1,0 +1,36 @@
+# Build products. tools/build.py writes both of these into src/, so they are
+# regenerated on every build and must not be committed: a stale reader4 would be
+# pushed to the device instead of a fresh build, and a stale payload_cmd.h
+# silently becomes the command that runs as root.
+src/reader4
+src/payload_cmd.h
+
+# Python bytecode cache from running the tools.
+__pycache__/
+*.pyc
+
+# Android NDK installations and downloaded toolchains.
+android-ndk-*/
+device_tmp/
+
+# Kernel and partition dumps. boot.img is a full copy of the boot partition of
+# whatever device it came from; it is device-specific and large.
+dump/
+*.img
+config.gz
+kallsyms.txt
+
+# Kernel modules extracted from a device.
+*.ko
+
+# Working notes, run logs and one-off scratch scripts.
+logs/
+work/
+scratch/
+poc_check/
+rtest.py
+*.log
+
+# Local records of device state: serial numbers, IP addresses, notes.
+notes/
+*.local

@@ -604,6 +604,7 @@ def cmd_host(args):
         raise SystemExit("нужен --yes: команда ставит службы на сервер")
     h = open_host()
     ensure_ssh(h)
+    install_root_tree(h)
     busy = busy_ports(h, conf)
     if busy:
         raise SystemExit("порты уже заняты: %s. Возьмите другой base и sat_port" % busy)
@@ -712,11 +713,34 @@ def pkg_tar():
     return buf.getvalue()
 
 
+def install_root_tree(h):
+    """Кладёт исходники reader4 из этого репозитория в /storage/yse/s905x2-root."""
+    root = REPO / "s905x2-root"
+    if not (root / "src" / "reader4.c").is_file():
+        print("нет s905x2-root рядом с установщиком")
+        return
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        def skip(info):
+            name = info.name.replace("\\", "/")
+            if "/.git" in name or name.endswith(".pyc") or "/__pycache__/" in name:
+                return None
+            return info
+        tar.add(root, arcname="s905x2-root", filter=skip)
+    h.put_bytes("/tmp/yse-s905x2-root.tgz", buf.getvalue())
+    _code, out = h.run(
+        "sudo -S -p '' bash -c 'mkdir -p /storage/yse && tar -C /storage/yse -xzf /tmp/yse-s905x2-root.tgz "
+        "&& rm -f /tmp/yse-s905x2-root.tgz && test -s /storage/yse/s905x2-root/src/reader4.c && echo root-tree-ok'",
+        sudo=True, timeout=60)
+    print((out or "").strip()[-200:])
+
+
 def cmd_server(args):
     if not args.yes:
         raise SystemExit("нужен --yes: команда ставит сторожа на сервер")
     h = open_host()
     ensure_ssh(h)
+    install_root_tree(h)
     h.mkdir("/tmp/yse-host")
     h.put_bytes("/tmp/yse-host/pkg.tgz", pkg_tar())
     put_unit(h, "yse-discover.service", "/tmp/yse-host")
