@@ -1,3 +1,19 @@
+x-gpu: &gpu
+  device_cgroup_rules:
+    - "c 195:* rwm"
+    - "c 234:* rwm"
+    - "c 508:* rwm"
+  devices:
+    - "/dev/nvidia-caps/nvidia-cap1:/dev/nvidia-caps/nvidia-cap1"
+    - "/dev/nvidia-caps/nvidia-cap2:/dev/nvidia-caps/nvidia-cap2"
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+
 services:
   yse:
     build: ./stand
@@ -57,6 +73,115 @@ services:
         ip addr show dev yse-shim | grep -q '${YSE_SHIM_IP}/' || ip addr add ${YSE_SHIM_IP}/32 dev yse-shim
         ip route replace ${YSE_IP}/32 dev yse-shim
         sleep infinity
+
+  whisper:
+    build:
+      context: ./speaker/host/stt
+      dockerfile: whisper.Dockerfile
+    image: yse-whisper:local
+    container_name: yse-whisper
+    restart: unless-stopped
+    environment:
+      WHISPER_MODEL: ${WHISPER_MODEL:-large-v3-turbo}
+      WHISPER_DEVICE: cuda
+      WHISPER_COMPUTE: int8_float16
+      HF_HOME: /models/hf
+    volumes:
+      - ./data/stt:/models
+    ports:
+      - "127.0.0.1:18950:8000"
+    mem_limit: 3g
+    <<: *gpu
+
+  gigaam:
+    build:
+      context: ./speaker/host/stt
+      dockerfile: gigaam.Dockerfile
+    image: yse-gigaam:local
+    container_name: yse-gigaam
+    restart: unless-stopped
+    environment:
+      STT_ENGINE: gigaam
+      GIGAAM_MODEL: ${GIGAAM_MODEL:-v3_e2e_rnnt}
+      GIGAAM_ROOT: /models/gigaam
+      GIGAAM_DEVICE: cuda
+    volumes:
+      - ./data/stt:/models
+    ports:
+      - "127.0.0.1:18953:8000"
+    mem_limit: 4g
+    <<: *gpu
+
+  voice:
+    image: python:3.10-slim-bookworm
+    container_name: yse-voice
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/voice/app/entrypoint.sh"]
+    environment:
+      VOICE_ROOT: /voice
+      VOICE_DEVICE: cuda:0
+      HF_HOME: /voice/cache/hf
+      TORCH_HOME: /voice/cache/torch
+      MALLOC_ARENA_MAX: "2"
+      CUDA_MODULE_LOADING: LAZY
+    volumes:
+      - ./data/voice:/voice
+      - ./speaker/host/voice:/voice/app:ro
+      - ./models/voice:/opt/yse/models/voice:ro
+    ports:
+      - "127.0.0.1:18952:8000"
+    mem_limit: 3g
+    memswap_limit: 3g
+    <<: *gpu
+
+  yse-core:
+    build: ./speaker/host/docker
+    image: yse-core:local
+    container_name: yse-core
+    restart: unless-stopped
+    init: true
+    network_mode: host
+    environment:
+      YSE_DOCKER: "1"
+      YSE_LOCAL: "1"
+      YSE_HOST_IP: ${YSE_VOICE_HOST}
+      YSE_NET: ${YSE_SUBNET}
+      YSE_HA_IP: ${YSE_HA_IP:-}
+      YSE_HA_URL: ${YSE_HA_URL:-}
+      YSE_SKIP: ${YSE_LOCK_SKIP:-}
+      YSE_REF_SPEAKER: ${YSE_REF_SPEAKER:-}
+      YSE_PKG: /storage/yse/pkg
+      YSE_AUTOROOT_ROOT: /storage/yse/s905x2-root
+      YSE_AUTOROOT_NDK: /storage/yse/android-ndk-r26d
+      YSE_AUTOROOT_LOCK: /storage/yse/dropbear
+    volumes:
+      - ./data/yse:/storage/yse
+      - ./data/mww:/storage/yse-mww
+      - ./speaker:/storage/yse/pkg:ro
+      - ./speaker/host/docker:/opt/yse/docker:ro
+      - ./speaker/s905x2-root:/storage/yse/s905x2-root:ro
+      - ./speaker/host/dropbear:/storage/yse/dropbear:ro
+      - ./models:/opt/yse/models:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    <<: *gpu
+
+  google:
+    build:
+      context: ./speaker/host
+      dockerfile: google/Dockerfile
+    image: yse-google:local
+    container_name: yse-google
+    restart: unless-stopped
+    init: true
+    network_mode: host
+    environment:
+      DISPLAY: ":99"
+      YSE_GOOGLE_AI_PORT: "18955"
+      YSE_GOOGLE_AI_VNC: "5900"
+      YSE_GOOGLE_AI_PROFILE: /storage/yse/google-ai/profile
+    volumes:
+      - ./data/google:/storage/yse/google-ai
+      - ./speaker/host/yse_google_ai.py:/app/yse_google_ai.py:ro
 
 networks:
   lan:

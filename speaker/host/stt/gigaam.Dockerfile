@@ -3,8 +3,7 @@ ENV PIP_NO_CACHE_DIR=1 PYTHONUNBUFFERED=1
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg git \
     && rm -rf /var/lib/apt/lists/*
-COPY wheels/torch-2.6.0+cu124-cp312-cp312-linux_x86_64.whl wheels/torchaudio-2.6.0+cu124-cp312-cp312-linux_x86_64.whl /tmp/wheels/
-RUN pip install /tmp/wheels/*.whl && rm -rf /tmp/wheels
+RUN pip install torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124
 RUN pip install "gigaam @ git+https://github.com/salute-developers/GigaAM.git"
 COPY stt_server.py /app/stt_server.py
 ENV STT_ENGINE=gigaam

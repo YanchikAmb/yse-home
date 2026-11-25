@@ -598,7 +598,19 @@ def busy_ports(h, conf):
     return [p for p in want if p in taken]
 
 
+def cmd_host_docker(args):
+    """В контейнере службы уже запущены. Здесь только файл колонки, его подхватит yse_dock."""
+    conf = load_conf(args.conf)
+    store = pathlib.Path("/storage/yse")
+    store.mkdir(parents=True, exist_ok=True)
+    (store / ("%s.env" % conf["id"])).write_text(env_text(conf), encoding="utf-8")
+    print("колонка %s в docker, порты с %s" % (conf["id"], conf["base"]))
+    return 0
+
+
 def cmd_host(args):
+    if os.environ.get("YSE_DOCKER") == "1":
+        return cmd_host_docker(args)
     conf = load_conf(args.conf)
     if not args.yes:
         raise SystemExit("нужен --yes: команда ставит службы на сервер")

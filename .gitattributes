@@ -1,3 +1,5 @@
 certs/*.pem -text
 certs/*.key -text
 firmware/yandexstation_2/*.zip filter=lfs diff=lfs merge=lfs -text
+speaker/host/docker/* text eol=lf
+speaker/host/voice/entrypoint.sh text eol=lf

@@ -304,6 +304,11 @@ def our_speakers():
 
 
 def active_units(prefix):
+    if os.environ.get("YSE_DOCKER") == "1":
+        folder = pathlib.Path("/storage/yse/run/units")
+        if not folder.is_dir():
+            return []
+        return sorted(path.name for path in folder.iterdir() if path.name.startswith(prefix))
     proc = subprocess.run(
         ["systemctl", "list-units", prefix + "*", "--state=active", "--no-legend", "--plain"],
         capture_output=True, text=True)
@@ -313,6 +318,16 @@ def active_units(prefix):
         if name.startswith(prefix):
             names.append(name)
     return names
+
+
+def restart_units(units):
+    if os.environ.get("YSE_DOCKER") == "1":
+        folder = pathlib.Path("/storage/yse/run/restart")
+        folder.mkdir(parents=True, exist_ok=True)
+        for unit in units:
+            (folder / unit).write_text("1", encoding="utf-8")
+        return
+    subprocess.run(["systemctl", "restart"] + units, capture_output=True)
 
 
 def sync_host():
@@ -349,7 +364,7 @@ def sync_host():
     for prefix in restart:
         units.extend(active_units(prefix))
     if units:
-        subprocess.run(["systemctl", "restart"] + units, capture_output=True)
+        restart_units(units)
         log("restart %s" % " ".join(units))
 
 

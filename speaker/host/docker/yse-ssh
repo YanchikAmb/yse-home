@@ -1,0 +1,34 @@
+#!/bin/sh
+# Вход на колонку. Один тип колонок пускает метод none, другой — пустой пароль.
+ip=$1
+shift
+mark=/tmp/yse-ssh-$ip
+probe() {
+  timeout 6 ssh -n -o BatchMode=yes -o PreferredAuthentications=none \
+    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    -o LogLevel=ERROR -o ConnectTimeout=5 -p 2222 "root@$ip" true >/dev/null 2>&1
+}
+run_none() {
+  exec ssh -o BatchMode=yes -o PreferredAuthentications=none \
+    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    -o LogLevel=ERROR -o ConnectTimeout=8 -p 2222 "root@$ip" "$@"
+}
+run_empty() {
+  SSH_ASKPASS=/storage/yse/bin/ssh-empty SSH_ASKPASS_REQUIRE=force DISPLAY=yse \
+  exec ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no \
+    -o NumberOfPasswordPrompts=1 \
+    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    -o LogLevel=ERROR -o ConnectTimeout=8 -p 2222 "root@$ip" "$@"
+}
+method=
+if [ -f "$mark" ]; then
+  method=$(cat "$mark" 2>/dev/null || true)
+fi
+if [ "$method" != none ] && [ "$method" != empty ]; then
+  if probe; then method=none; else method=empty; fi
+  printf '%s\n' "$method" > "$mark" 2>/dev/null || true
+fi
+if [ "$method" = none ]; then
+  run_none "$@"
+fi
+run_empty "$@"
