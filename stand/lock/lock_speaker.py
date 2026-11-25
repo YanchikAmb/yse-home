@@ -8,6 +8,7 @@
 
 import json
 import os
+import secrets
 import socket
 import subprocess
 import threading
@@ -91,17 +92,46 @@ def _say(ip, msg):
         pass
 
 
+def _adb_probe(ip):
+    """Макс: приложение debuggable, ключ лежит в files/token. SSH у него нет."""
+    if not _port(ip, 5555):
+        subprocess.run([ADB, "connect", "%s:5555" % ip], stdout=subprocess.PIPE,
+                       stderr=subprocess.STDOUT, timeout=20)
+    if not _port(ip, 5555):
+        return ""
+    path = _adb(ip, "shell", "pm path com.yse.station", timeout=20)
+    if b"package:" not in path.stdout:
+        return ""
+    token = secrets.token_hex(8)
+    remote = (
+        "run-as com.yse.station sh -c '"
+        "if [ ! -s files/token ]; then printf %s " + token + " > files/token; fi; "
+        "echo SHELL=yes; echo -n TOKEN=; cat files/token; echo; "
+        "echo PLATFORM=yandexstation_2'"
+    )
+    out = _adb(ip, "shell", remote, timeout=25)
+    return out.stdout.decode("utf-8", "replace")
+
+
 def probe(ip):
     """Читает модель и ключ страницы. Статус «прошита» не ставит."""
-    out = _ssh(ip, (
-        "D=/data/opt/yandex-station; "
-        "if [ -s $D/token ]; then echo SHELL=yes; echo -n TOKEN=; cat $D/token; echo; "
-        "echo -n PLATFORM=; tr -d '\\r\\n' < $D/settings/vqe.txt; echo; "
-        "else echo SHELL=no; fi"
-    ))
-    text = out.stdout.decode("utf-8", "replace")
-    if out.returncode != 0 and "SHELL=" not in text:
-        raise RuntimeError("по SSH колонка не ответила")
+    text = ""
+    try:
+        out = _ssh(ip, (
+            "D=/data/opt/yandex-station; "
+            "if [ -s $D/token ]; then echo SHELL=yes; echo -n TOKEN=; cat $D/token; echo; "
+            "echo -n PLATFORM=; tr -d '\\r\\n' < $D/settings/vqe.txt; echo; "
+            "else echo SHELL=no; fi"
+        ))
+        text = out.stdout.decode("utf-8", "replace")
+        if out.returncode != 0 and "SHELL=" not in text:
+            text = ""
+    except Exception:
+        text = ""
+    if "SHELL=" not in text:
+        text = _adb_probe(ip)
+    if "SHELL=" not in text:
+        raise RuntimeError("колонка не ответила ни по SSH, ни по ADB")
     shell = "SHELL=yes" in text
     platform = ""
     page_key = ""

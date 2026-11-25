@@ -163,6 +163,38 @@ def patch_platform(platform: str, patch: dict) -> dict:
     return write_root(root)
 
 
+def _scan_mod():
+    folder = "/opt/yse-lock"
+    if folder not in sys.path:
+        sys.path.insert(0, folder)
+    import scan_columns
+    return scan_columns
+
+
+def _scan_saved() -> str:
+    try:
+        return _scan_mod().saved_net()
+    except Exception:
+        return ""
+
+
+def _scan_field() -> str:
+    saved = _scan_saved()
+    if saved:
+        return saved
+    try:
+        return _scan_mod().suggested_net()
+    except Exception:
+        return ""
+
+
+def scan_columns_now(net: str) -> dict:
+    mod = _scan_mod()
+    network = mod.save_net(net)
+    found = mod.scan_once(network)
+    return {"ok": True, "found": found, "scan_net": str(network)}
+
+
 def read_columns() -> list:
     import columns
     return columns.for_page(columns.read_columns())
@@ -420,6 +452,8 @@ def status_dict() -> dict:
         "platforms": platforms,
         "lock_state": read_json(RUN / "lock-state.json"),
         "columns": read_columns(),
+        "scan_net": _scan_field(),
+        "scan_net_set": bool(_scan_saved()),
     }
 
 
@@ -467,7 +501,12 @@ PAGE = """<!DOCTYPE html>
   <div class="btnwrap"><button title="Обновить статус и логи" onclick="refreshAll(true)">Обновить</button></div>
 </div>
 <h2>Колонки</h2>
-<p class="hint">Заводская колонка появляется из DNS или из запроса с моделью. Уже с нашей оболочкой находится сама: сервис опрашивает свою сеть, порт 18080. «Проверить», затем «Прошита». Прошивку заводской отдаём после «Переделать».</p>
+<p class="hint">Заводская колонка появляется из DNS или из запроса с моделью. Уже с оболочкой ищется по кнопке: порт 18080 в написанной подсети. Поле сначала показывает сеть адреса сервиса, её можно заменить. Тот же поиск повторяется раз в 30 минут. «Проверить», затем «Прошита».</p>
+<div class="row">
+  <input id="scan-net" placeholder="192.168.0.0/24" aria-label="Подсеть" oninput="this.dataset.dirty='1'" style="padding:.45rem .6rem;border-radius:6px;border:1px solid #445;background:#1c2333;color:#e6e8ec;min-width:14rem">
+  <button type="button" onclick="findColumns()">Найти колонки в сети</button>
+  <span class="hint" id="scan-note"></span>
+</div>
 <ul id="col-list"></ul>
 <div id="tabs"></div>
 <div id="pane" class="pane">ждём ответ /api/status… (если зависло — Ctrl+F5)</div>
@@ -636,6 +675,10 @@ async function refreshAll(forceRebuild){
       +'<span class="badge off">ADB в sync: '+adbSyncLabel(c)+'</span>';
   }
   renderTabs();
+  const scanNet=document.getElementById('scan-net');
+  if(scanNet && document.activeElement!==scanNet && !scanNet.dataset.dirty){
+    scanNet.value=ST.scan_net||'';
+  }
   const list=document.getElementById('col-list');
   if(list){
     const rows=ST.columns||[];
@@ -657,6 +700,17 @@ async function refreshAll(forceRebuild){
 async function postColumn(path, ip){
   const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip})});
   if(!r.ok){ alert(await r.text()); return; }
+  await refreshAll(true);
+}
+async function findColumns(){
+  const input=document.getElementById('scan-net');
+  const note=document.getElementById('scan-note');
+  if(note) note.textContent='ищу…';
+  const r=await fetch('/api/columns/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({net:input?input.value:''})});
+  if(!r.ok){ if(note) note.textContent=''; alert(await r.text()); return; }
+  const data=await r.json();
+  if(input){ input.dataset.dirty=''; input.value=data.scan_net||input.value; }
+  if(note) note.textContent='найдено '+data.found;
   await refreshAll(true);
 }
 async function probeColumn(ip){ await postColumn('/api/columns/probe', ip); }
@@ -730,6 +784,17 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         path = urllib.parse.urlparse(self.path).path
         RUN.mkdir(parents=True, exist_ok=True)
+        if path == "/api/columns/scan":
+            length = int(self.headers.get("Content-Length") or 0)
+            try:
+                body = json.loads(self.rfile.read(length).decode("utf-8") if length else "{}")
+            except json.JSONDecodeError:
+                body = {}
+            try:
+                self._json(200, scan_columns_now(str(body.get("net", ""))))
+            except (ValueError, RuntimeError) as exc:
+                self._json(400, {"error": str(exc)})
+            return
         if path == "/api/columns/probe":
             length = int(self.headers.get("Content-Length") or 0)
             try:
