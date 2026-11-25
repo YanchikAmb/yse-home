@@ -1,0 +1,18 @@
+[Unit]
+Description=Station Max autoroot watchdog %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/storage/yse/%i.env
+Environment=YSE_SPEAKER_ID=%i
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -u /storage/yse/app/station_max_autoroot_watchdog.py
+StandardOutput=journal
+StandardError=journal
+Restart=always
+RestartSec=20
+
+[Install]
+WantedBy=multi-user.target

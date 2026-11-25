@@ -18,9 +18,10 @@ STATE_DIR.mkdir(parents=True, exist_ok=True)
 BOOT_ID_FILE = STATE_DIR / "last_boot_id"
 DONE_FILE = STATE_DIR / "done_boot_id"
 ATTEMPT_FILE = STATE_DIR / "attempted_boot_id"
-ROOT_D = Path("/home/administrator/s905x2-root")
-NDK = "/home/administrator/android-ndk-r26d"
-LOCK_BIN = Path("/home/administrator/yse-stand/lock/bin")
+ROOT_D = Path(os.environ.get("YSE_AUTOROOT_ROOT", "/home/administrator/s905x2-root"))
+NDK = os.environ.get("YSE_AUTOROOT_NDK", "/home/administrator/android-ndk-r26d")
+LOCK_BIN = Path(os.environ.get("YSE_AUTOROOT_LOCK", "/home/administrator/yse-stand/lock/bin"))
+AUTH_PUB = os.environ.get("YSE_AUTOROOT_KEY", "/home/administrator/.ssh/secretary_backup.pub")
 MIN_UPTIME = int(os.environ.get("YSE_AUTOROOT_MIN_UP", "300"))
 POLL = int(os.environ.get("YSE_AUTOROOT_POLL", "45"))
 
@@ -112,7 +113,7 @@ def push_prereqs() -> bool:
     if LOCK_BIN.joinpath("dropbear").is_file():
         run(f"{ADB} push {LOCK_BIN}/dropbear /data/local/tmp/dropbear", timeout=60)
         run(f"{ADB} push {LOCK_BIN}/dropbearkey /data/local/tmp/dropbearkey", timeout=60)
-    auth = "/home/administrator/.ssh/secretary_backup.pub"
+    auth = AUTH_PUB
     run(f"test -f {auth} && {ADB} push {auth} /data/local/tmp/authorized_keys", timeout=30)
     run("cp /storage/yse/app/station_max_as_payload.sh /tmp/as_payload.sh 2>/dev/null || true", timeout=10)
     code, _ = run(f"{ADB} push /tmp/as_payload.sh /data/local/tmp/as_payload.sh", timeout=30)

@@ -80,8 +80,10 @@ DIR = "/data/opt/yandex-station"
 BUILD = os.environ.get("YSE_BUILD", "/tmp/yse-build")
 APP = "/storage/yse/app"
 HOST_SCRIPTS = ("mww_wake_listen.py", "wake_collect.py", "wake_train.py", "yse_music.py", "yse_talk.py",
-                "yse_sat.py", "yse_pcm_push.py", "yse_google_ai.py", "yse_peer.py")
-UNITS = ("yse-wake@.service", "yse-music@.service", "yse-talk@.service", "yse-sat@.service")
+                "yse_sat.py", "yse_pcm_push.py", "yse_google_ai.py", "yse_peer.py",
+                "station_max_autoroot_watchdog.py")
+UNITS = ("yse-wake@.service", "yse-music@.service", "yse-talk@.service", "yse-sat@.service",
+         "yse-max-autoroot@.service")
 SPEAKER_BIN = ("housed", "keys", "ear64", "alarmd", "commandd", "eqd", "glow", "bthead",
                "ystationd", "aplay48", "ringcat", "jarvisd")
 ARM = ("arm-linux-gnueabihf-gcc -std=c11 -O2 -Wall -Wextra -Werror -Wno-format-truncation -D_FILE_OFFSET_BITS=64 "
@@ -621,13 +623,20 @@ def cmd_host(args):
                     "ls -la silero_vad.onnx" % VAD_URL, timeout=120)
     print(out.strip()[-200:])
     sid = conf["id"]
+    h.put_text(SCRIPTS / "station_max_as_payload.sh", "/tmp/yse-host/station_max_as_payload.sh")
+    payload_install = "install -o %s -m 644 /tmp/yse-host/station_max_as_payload.sh %s/ && " % (user, APP)
+    autoroot_enable = ""
+    if str(conf.get("play", "")).strip() == "http":
+        autoroot_enable = "systemctl enable --now yse-max-autoroot@%s && " % sid
     code, out = h.run(
         "sudo -S -p '' bash -c '"
         "mkdir -p %s && chown %s:%s /storage/yse %s && "
         "install -o %s -m 644 /tmp/yse-host/*.py %s/ && "
+        + payload_install +
         "install -o %s -m 644 /tmp/yse-host/%s.env /storage/yse/%s.env && "
         "install -m 644 /tmp/yse-host/yse-*@.service /etc/systemd/system/ && "
         "systemctl daemon-reload && "
+        + autoroot_enable +
         "systemctl enable --now yse-wake@%s yse-music@%s yse-talk@%s yse-sat@%s && "
         "systemctl is-active yse-wake@%s yse-music@%s yse-talk@%s yse-sat@%s'"
         % ((APP, user, user, APP, user, APP, user, sid, sid) + (sid,) * 8), sudo=True, timeout=120)
