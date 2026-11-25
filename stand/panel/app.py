@@ -501,7 +501,7 @@ PAGE = """<!DOCTYPE html>
   <div class="btnwrap"><button title="Обновить статус и логи" onclick="refreshAll(true)">Обновить</button></div>
 </div>
 <h2>Колонки</h2>
-<p class="hint">Заводская колонка появляется из DNS или из запроса с моделью. Уже с оболочкой ищется только по кнопке: порт 18080 в написанной подсети. Поле сначала показывает сеть адреса сервиса, её можно заменить. Само по себе ничего не ищет. «Проверить», затем «Прошита».</p>
+<p class="hint">Заводская колонка появляется, когда спрашивает обновление. Уже с оболочкой ищется кнопкой «Найти колонки в сети». «Открыть» — страница этой колонки. «Проверить», затем «Прошита».</p>
 <div class="row">
   <input id="scan-net" placeholder="192.168.0.0/24" aria-label="Подсеть" oninput="this.dataset.dirty='1'" style="padding:.45rem .6rem;border-radius:6px;border:1px solid #445;background:#1c2333;color:#e6e8ec;min-width:14rem">
   <button type="button" onclick="findColumns()">Найти колонки в сети</button>
@@ -687,7 +687,7 @@ async function refreshAll(forceRebuild){
       const name=esc(c.title||c.platform||'колонка');
       const detail=esc(c.detail||'');
       const busy=c.job==='work'||c.job==='armed';
-      let buttons=ip?'<button type="button" onclick="probeColumn(\\''+ip+'\\')">Проверить</button>':'';
+      let buttons=ip?'<button type="button" onclick="window.open(\\'http://'+ip+':18080/\\',\\'_blank\\')">Открыть</button> <button type="button" onclick="probeColumn(\\''+ip+'\\')">Проверить</button>':'';
       if(ip&&c.shell&&!c.flashed) buttons+=' <button type="button" onclick="confirmColumn(\\''+ip+'\\')">Прошита</button>';
       if(c.flashed) buttons+=' <span class="badge off">прошита</span>';
       if(ip&&c.platform&&!c.flashed) buttons+=' <button type="button" '+(busy?'disabled':'')+' onclick="convertColumn(\\''+ip+'\\')">Переделать</button>';

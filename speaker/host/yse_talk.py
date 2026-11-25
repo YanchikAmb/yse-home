@@ -32,7 +32,7 @@ HOST = "0.0.0.0"
 BASE = int(os.environ.get("YSE_BASE", "18765"))
 PORT = BASE + 3
 MUSIC_URL = "http://127.0.0.1:%d" % (BASE + 1)
-HA_URL = os.environ.get("YSE_HA_URL", "http://192.168.209.15:8123").rstrip("/")
+HA_URL = os.environ.get("YSE_HA_URL", "").rstrip("/")
 
 
 def demo_token():
@@ -176,7 +176,7 @@ def publish_heard(phrase):
 def ha_post(path, body, content_type="application/json", timeout=4):
     """POST в компонент yse_station с ключом страницы колонки. None — HA недоступен или ключ не принят."""
     global ha_skip_until
-    if time.time() < ha_skip_until:
+    if not HA_URL or time.time() < ha_skip_until:
         return None
     for _ in range(2):
         if not page_key["value"]:

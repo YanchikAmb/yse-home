@@ -318,7 +318,7 @@ def _ask_shell(ip):
 
 def _write_server(ip):
     """Адрес голоса в files/server.txt. Приложение читает его вместо константы в исходнике."""
-    host = os.environ.get("YSE_VOICE_HOST", "").strip()
+    host = os.environ.get("LOCAL_IP", "").strip() or os.environ.get("BIND_IP", "").strip()
     base = _ensure_speaker(ip)
     if not re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", host):
         return

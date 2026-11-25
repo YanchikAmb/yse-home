@@ -4,6 +4,7 @@
 import os
 import subprocess
 import sys
+import threading
 
 sys.path.insert(0, "/opt/yse-lock")
 from install_hook import install
@@ -32,7 +33,14 @@ def start_panel() -> subprocess.Popen | None:
     return p
 
 
+def start_forward() -> None:
+    import port_forward
+
+    threading.Thread(target=port_forward.main, daemon=True).start()
+
+
 def main() -> int:
+    start_forward()
     try:
         changed = install("/opt/lite-kit/scripts/equasar_server.py")
     except SystemExit as ex:

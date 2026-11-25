@@ -53,8 +53,8 @@ services:
         ipv4_address: ${YSE_IP}
     command: ["python3", "/opt/yse-lock/entrypoint.py"]
 
-  # Macvlan прячет адрес сервиса от самого компьютера. Этот контейнер поднимает
-  # второй адрес на той же карте, чтобы страница открывалась и с этой машины.
+  # Соседний адрес на той же карте: с этого компьютера открывается страница,
+  # и на него же уходит слово, которое колонка прислала на YSE_IP.
   yse-shim:
     image: python:3.12-slim-bookworm
     container_name: yse-shim
@@ -62,17 +62,31 @@ services:
     cap_add:
       - NET_ADMIN
     restart: unless-stopped
+    environment:
+      YSE_IP: ${YSE_IP}
+      YSE_NIC: ${YSE_NIC}
+      YSE_SHIM_IP: ${YSE_SHIM_IP:-}
+    volumes:
+      - ./run:/run/yse
     command:
       - sh
       - -c
       - |
         apt-get update -qq && apt-get install -y -qq iproute2 >/dev/null
-        ip link show ${YSE_NIC} >/dev/null
-        ip link set ${YSE_NIC} promisc on
-        ip link show yse-shim >/dev/null 2>&1 || ip link add yse-shim link ${YSE_NIC} type macvlan mode bridge
+        ip link show "$$YSE_NIC" >/dev/null
+        ip link set "$$YSE_NIC" promisc on
+        ip link show yse-shim >/dev/null 2>&1 || ip link add yse-shim link "$$YSE_NIC" type macvlan mode bridge
         ip link set yse-shim up
-        ip addr show dev yse-shim | grep -q '${YSE_SHIM_IP}/' || ip addr add ${YSE_SHIM_IP}/32 dev yse-shim
-        ip route replace ${YSE_IP}/32 dev yse-shim
+        if [ -n "$$YSE_SHIM_IP" ]; then SHIM=$$YSE_SHIM_IP
+        else
+          base=$${YSE_IP%.*}
+          last=$${YSE_IP##*.}
+          if [ "$$last" -gt 1 ]; then SHIM=$$base.$$((last - 1)); else SHIM=$$base.$$((last + 1)); fi
+        fi
+        ip addr show dev yse-shim | grep -q "$$SHIM/" || ip addr add "$$SHIM/32" dev yse-shim
+        ip route replace "$$YSE_IP/32" dev yse-shim
+        mkdir -p /run/yse
+        printf '%s\n' "$$SHIM" > /run/yse/forward.ip
         sleep infinity
 
   whisper:
@@ -145,7 +159,7 @@ services:
     environment:
       YSE_DOCKER: "1"
       YSE_LOCAL: "1"
-      YSE_HOST_IP: ${YSE_VOICE_HOST}
+      YSE_HOST_IP: ${YSE_IP}
       YSE_VOICE_BASE: ${YSE_VOICE_BASE:-18805}
       YSE_NET: ${YSE_SUBNET}
       YSE_HA_IP: ${YSE_HA_IP:-}

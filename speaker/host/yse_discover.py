@@ -21,7 +21,7 @@ from urllib.parse import parse_qs, urlparse
 
 HOST_IP = os.environ.get("YSE_HOST_IP", "192.168.209.50")
 NET = ipaddress.ip_network(os.environ.get("YSE_NET", HOST_IP.rsplit(".", 1)[0] + ".0/24"), strict=False)
-HA_IP = os.environ.get("YSE_HA_IP", "192.168.209.15")
+HA_IP = os.environ.get("YSE_HA_IP", "").strip()
 SKIP = set(filter(None, os.environ.get("YSE_SKIP", "").replace(" ", "").split(",")))
 REF = os.environ.get("YSE_REF_SPEAKER", "192.168.209.105")
 PORT = int(os.environ.get("YSE_DISCOVER_PORT", "18760"))
