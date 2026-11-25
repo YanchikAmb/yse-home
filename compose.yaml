@@ -47,6 +47,7 @@ services:
       - ./run:/opt/lite-kit/run
       - ./certs:/opt/lite-kit/certs
       - ./max:/opt/yse-max:ro
+      - ./data/yse:/storage/yse
     networks:
       lan:
         ipv4_address: ${YSE_IP}
@@ -145,6 +146,7 @@ services:
       YSE_DOCKER: "1"
       YSE_LOCAL: "1"
       YSE_HOST_IP: ${YSE_VOICE_HOST}
+      YSE_VOICE_BASE: ${YSE_VOICE_BASE:-18805}
       YSE_NET: ${YSE_SUBNET}
       YSE_HA_IP: ${YSE_HA_IP:-}
       YSE_HA_URL: ${YSE_HA_URL:-}

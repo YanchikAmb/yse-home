@@ -1184,8 +1184,10 @@ def column_kind(model):
 
 def column_slots(h):
     code, out = h.run("""python3 - <<'PY'
-import pathlib, re
-bases, sats = {18765}, {10700}
+import os, pathlib, re
+base = int(os.environ.get("YSE_VOICE_BASE", "18805"))
+sat = int(os.environ.get("YSE_SAT_PORT", "10700"))
+bases, sats = {base - 10}, {sat}
 root = pathlib.Path("/storage/yse")
 if root.is_dir():
     for env in root.glob("*.env"):

@@ -113,6 +113,36 @@ def scan_once():
         log("found %s" % ip)
 
 
+def speaker_known(ip):
+    for env in STORE.glob("*.env"):
+        text = env.read_text(encoding="utf-8", errors="replace")
+        if re.search(r"^YSE_SPEAKER=%s\s*$" % re.escape(ip), text, re.M):
+            return True
+    return False
+
+
+def take_queue():
+    """Стенд кладёт сюда IP после SSH. Дальше ставим оболочку и файл портов."""
+    folder = STORE / "queue"
+    if not folder.is_dir():
+        return
+    for path in sorted(folder.iterdir()):
+        ip = path.name
+        if not re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", ip):
+            path.unlink()
+            continue
+        path.unlink()
+        if speaker_known(ip):
+            log("queue %s already" % ip)
+            continue
+        with lock:
+            if ip in jobs and jobs[ip].get("state") == "running":
+                continue
+            jobs[ip] = {"state": "running", "step": "старт"}
+        threading.Thread(target=install, args=(ip,), daemon=True).start()
+        log("queue %s" % ip)
+
+
 def scanner():
     while True:
         try:
@@ -122,8 +152,25 @@ def scanner():
         time.sleep(EVERY)
 
 
+def queue_loop():
+    while True:
+        try:
+            take_queue()
+        except Exception as exc:
+            log("queue fail %s" % type(exc).__name__)
+        time.sleep(5)
+
+
 def used_slots():
-    bases, sats = {18765}, {10700}
+    try:
+        base = int(os.environ.get("YSE_VOICE_BASE", "18805"))
+    except ValueError:
+        base = 18805
+    try:
+        sat = int(os.environ.get("YSE_SAT_PORT", "10700"))
+    except ValueError:
+        sat = 10700
+    bases, sats = {base - 10}, {sat}
     for env in STORE.glob("*.env"):
         text = env.read_text(encoding="utf-8", errors="replace")
         for key, bag in (("YSE_BASE", bases), ("YSE_SAT_PORT", sats)):
@@ -170,8 +217,11 @@ def install(ip):
                 if code:
                     raise RuntimeError("сборка")
             step(ip, "колонка")
-            code, out = setup(["speaker", "--conf", str(path), "--yes", "--from", REF, "--noupdate"], logf, 1800)
-            if code:
+            speaker_args = ["speaker", "--conf", str(path), "--yes"]
+            if REF:
+                speaker_args += ["--from", REF, "--noupdate"]
+            code, out = setup(speaker_args, logf, 1800)
+            if code and "уже стоит" not in out:
                 raise RuntimeError("колонка")
             step(ip, "сервер")
             code, out = setup(["host", "--conf", str(path), "--yes"], logf, 600)
@@ -604,5 +654,6 @@ class Api(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     log("discover %s port %d skip %d" % (NET, PORT, len(SKIP)))
     threading.Thread(target=scanner, daemon=True).start()
+    threading.Thread(target=queue_loop, daemon=True).start()
     threading.Thread(target=publisher, daemon=True).start()
     ThreadingHTTPServer(("0.0.0.0", PORT), Api).serve_forever()

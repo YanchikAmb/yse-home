@@ -201,11 +201,13 @@ def _run(ip):
         action = plan(ip, version, _port(ip, 2222), _state().get(ip), set(), False)
         if action == "done":
             columns.set_job(ip, "done", "уже готово")
+            _ask_shell(ip)
             return
         if action == "check" and _ssh_settled(ip):
             _save(ip, version, "done")
             columns.set_job(ip, "done", "SSH и запрет обновлений уже на месте")
             _say(ip, "SSH и запрет обновлений уже на месте")
+            _ask_shell(ip)
             return
         if not _wait_adb(ip, 180):
             columns.set_job(ip, "armed", "порт 5555 ещё закрыт, повторю на следующем запросе")
@@ -238,6 +240,7 @@ def _install_apk(ip):
     text = installed.stdout.decode("utf-8", "replace")
     if installed.returncode != 0 or "Success" not in text:
         raise RuntimeError("приложение не встало")
+    _ensure_speaker(ip)
     _write_server(ip)
     script = (
         "cmd appops set com.yandex.io.sdk RECORD_AUDIO deny;"
@@ -258,13 +261,68 @@ def _install_apk(ip):
     _say(ip, "приложение поставлено")
 
 
+STORE = Path(os.environ.get("YSE_STATE", "/storage/yse"))
+
+
+def _slot_pair():
+    try:
+        base = int(os.environ.get("YSE_VOICE_BASE", "18805"))
+    except ValueError:
+        base = 18805
+    try:
+        sat = int(os.environ.get("YSE_SAT_PORT", "10700"))
+    except ValueError:
+        sat = 10700
+    bases, sats = {base - 10}, {sat}
+    if STORE.is_dir():
+        for env in STORE.glob("*.env"):
+            text = env.read_text(encoding="utf-8", errors="replace")
+            for key, bag in (("YSE_BASE", bases), ("YSE_SAT_PORT", sats)):
+                match = re.search(r"^%s=(\d+)" % key, text, re.M)
+                if match:
+                    bag.add(int(match.group(1)))
+    return max(bases) + 10, max(sats) + 1
+
+
+def _speaker_file(ip):
+    return STORE / ("st%s.env" % ip.rsplit(".", 1)[-1])
+
+
+def _ensure_speaker(ip):
+    """Файл колонки. По нему контейнер голоса открывает слово, ответы и музыку на тех же портах."""
+    path = _speaker_file(ip)
+    if path.is_file():
+        match = re.search(r"^YSE_BASE=(\d+)", path.read_text(encoding="utf-8", errors="replace"), re.M)
+        if match:
+            return match.group(1)
+    base, sat = _slot_pair()
+    tail = ip.rsplit(".", 1)[-1]
+    body = (
+        "YSE_NAME=Колонка %s\nYSE_AREA=\nYSE_SPEAKER=%s\nYSE_BASE=%s\nYSE_SAT_PORT=%s\n"
+        "YSE_PLAY=http\nYSE_MODEL=/storage/yse-mww/trainer/ru_jarvis_mww.tflite\n"
+        % (tail, ip, base, sat)
+    )
+    STORE.mkdir(parents=True, exist_ok=True)
+    path.write_text(body, encoding="utf-8")
+    return str(base)
+
+
+def _ask_shell(ip):
+    """Станция 2 и Мини 2: SSH уже есть, оболочку ставит контейнер голоса."""
+    if _speaker_file(ip).is_file():
+        return
+    folder = STORE / "queue"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / ip).write_text("linux\n", encoding="utf-8")
+
+
 def _write_server(ip):
     """Адрес голоса в files/server.txt. Приложение читает его вместо константы в исходнике."""
     host = os.environ.get("YSE_VOICE_HOST", "").strip()
-    base = os.environ.get("YSE_VOICE_BASE", "18805").strip() or "18805"
+    base = _ensure_speaker(ip)
     if not re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", host):
         return
-    if not re.fullmatch(r"\d{2,5}", base):
+    if not re.fullmatch(r"\d{2,5}", str(base)):
         return
     _adb(ip, "shell",
          "run-as com.yse.station sh -c 'mkdir -p files && printf \"%s\\n%s\\n\" > files/server.txt'"
@@ -362,6 +420,7 @@ def _install(ip, version):
         _save(ip, version, "done")
         columns.set_job(ip, "done", "уже закреплена")
         _say(ip, "уже закреплена, перезагрузка не нужна")
+        _ask_shell(ip)
         return
     if not {"dropbear", "applier", "launchno"} <= marks:
         _push(ip)
@@ -379,6 +438,7 @@ def _install(ip, version):
     _save(ip, version, "done")
     columns.set_job(ip, "done", "SSH жив после перезагрузки")
     _say(ip, "готово, SSH жив после перезагрузки")
+    _ask_shell(ip)
 
 
 def _push(ip):
