@@ -1,0 +1,15 @@
+[Unit]
+Description=YSE: поиск новых колонок и установка по кнопке из HA
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+User=root
+Environment=YSE_LOCAL=1 YSE_PKG=/storage/yse/pkg PYTHONUNBUFFERED=1
+EnvironmentFile=-/storage/yse/discover.env
+ExecStart=/usr/bin/python3 /storage/yse/pkg/host/yse_discover.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

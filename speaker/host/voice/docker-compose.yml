@@ -1,0 +1,37 @@
+name: yse-voice
+# Свой голос колонок: Silero (ударения, ё) и RVC поверх. Образ маленький, библиотеки
+# и модели лежат в /storage/yse/voice: на корне сервера мало места.
+services:
+  voice:
+    image: python:3.10-slim
+    container_name: yse-voice
+    restart: unless-stopped
+    command: ["/voice/venv/bin/python", "-u", "/voice/app/voice_server.py"]
+    environment:
+      VOICE_ROOT: /voice
+      VOICE_DEVICE: cuda:0
+      HF_HOME: /voice/cache/hf
+      TORCH_HOME: /voice/cache/torch
+      MALLOC_ARENA_MAX: "2"
+      CUDA_MODULE_LOADING: LAZY
+    volumes:
+      - /storage/yse/voice:/voice
+    ports:
+      - "127.0.0.1:18952:8000"
+    mem_limit: 3g
+    memswap_limit: 3g
+    # Право открыть видеокарту хранится в юните и не слетает после daemon-reload.
+    device_cgroup_rules:
+      - "c 195:* rwm"
+      - "c 234:* rwm"
+      - "c 508:* rwm"
+    devices:
+      - "/dev/nvidia-caps/nvidia-cap1:/dev/nvidia-caps/nvidia-cap1"
+      - "/dev/nvidia-caps/nvidia-cap2:/dev/nvidia-caps/nvidia-cap2"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

@@ -1,0 +1,233 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Yandex Station, own shell",
+        "description": "Speaker address and page key (the token file on the speaker).",
+        "data": {
+          "name": "Name",
+          "host": "Speaker address",
+          "port": "Page port",
+          "token": "Page key",
+          "area": "Area"
+        }
+      },
+      "confirm": {
+        "title": "New speaker",
+        "description": "Rooted {kind} found: {name} ({ip}). Install the own shell? Takes 5-30 minutes and the speaker restarts. Decline with Ignore."
+      }
+    },
+    "error": {
+      "cannot_connect": "Speaker does not answer",
+      "invalid_auth": "Wrong key"
+    },
+    "abort": {
+      "already_configured": "This speaker is already added",
+      "install_failed": "Install failed. Log on the server: /storage/yse/jobs/"
+    },
+    "flow_title": "{name}",
+    "progress": {
+      "install": "Installing the shell on the speaker and services on the server."
+    }
+  },
+  "entity": {
+    "light": {
+      "lamp": {
+        "name": "Lamp"
+      },
+      "ring": {
+        "name": "Ring",
+        "state_attributes": {
+          "effect": {
+            "state": {
+              "wave": "Wave",
+              "breathe": "Breathe",
+              "spin": "Spin",
+              "fill": "Fill",
+              "spark": "Spark",
+              "shift": "Shift",
+              "comet": "Comet",
+              "aurora": "Aurora",
+              "twinkle": "Twinkle"
+            }
+          }
+        }
+      }
+    },
+    "select": {
+      "brain": {
+        "name": "Assistant",
+        "state": {
+          "none": "None",
+          "yandex": "Yandex",
+          "ha": "Home Assistant",
+          "assist": "HA Assist (audio)",
+          "openai": "OpenAI-compatible",
+          "google": "Google AI Mode"
+        }
+      },
+      "voice": {
+        "name": "Voice",
+        "state": {
+          "alisa": "Alisa",
+          "dmitry": "Dmitry",
+          "svetlana": "Svetlana",
+          "own_jarvis": "Jarvis (own server)",
+          "own_jarvis_new": "Jarvis new (own server)",
+          "own_vihrov": "Vihrov (own server)",
+          "own_baya": "Silero Baya (own server)",
+          "own_eugene": "Silero Eugene (own server)"
+        }
+      },
+      "wake": {
+        "name": "Wake word",
+        "state": {
+          "джарвис": "Jarvis (own model)",
+          "алиса": "Alisa (Yandex, on speaker)",
+          "яндекс": "Yandex (Yandex, on speaker)"
+        }
+      },
+      "news": {
+        "name": "News",
+        "state": {
+          "yandex": "Yandex",
+          "google": "Google AI Mode",
+          "openai": "Own (Grok, Gemini, others)"
+        }
+      },
+      "stt": {
+        "name": "Speech recognition",
+        "state": {
+          "vosk-small": "Vosk small",
+          "vosk": "Vosk large",
+          "whisper": "Whisper",
+          "yandex": "Yandex",
+          "ha": "Home Assistant"
+        }
+      },
+      "eq": {
+        "name": "Equalizer",
+        "state": {
+          "flat": "Flat",
+          "bass": "More bass",
+          "voice": "Voice",
+          "treble": "More treble",
+          "loud": "Loud",
+          "soft": "Soft",
+          "less_bass": "Less bass"
+        }
+      }
+    },
+    "switch": {
+      "wake_sound": {
+        "name": "Wake sound"
+      },
+      "bluetooth": {
+        "name": "Headset"
+      },
+      "local": {
+        "name": "On-device recognition"
+      }
+    },
+    "text": {
+      "persona": {
+        "name": "Persona"
+      },
+      "llm_url": {
+        "name": "LLM address"
+      },
+      "llm_model": {
+        "name": "LLM model"
+      },
+      "llm_key": {
+        "name": "LLM key"
+      },
+      "news_url": {
+        "name": "News address"
+      },
+      "news_model": {
+        "name": "News model"
+      },
+      "news_key": {
+        "name": "News key"
+      }
+    },
+    "sensor": {
+      "heard": {
+        "name": "Heard"
+      },
+      "speaker": {
+        "name": "Speaking"
+      },
+      "wifi": {
+        "name": "Wi-Fi"
+      },
+      "alarm": {
+        "name": "Alarm"
+      },
+      "lux": {
+        "name": "Illuminance"
+      },
+      "chip": {
+        "name": "Board temperature"
+      },
+      "watts": {
+        "name": "Power"
+      },
+      "headphones": {
+        "name": "Headphones"
+      },
+      "ble_count": {
+        "name": "BLE devices nearby"
+      },
+      "ble_devices": {
+        "name": "BLE gateway"
+      }
+    },
+    "button": {
+      "like": {
+        "name": "Like"
+      },
+      "dislike": {
+        "name": "Dislike"
+      }
+    },
+    "number": {
+      "eq_60": {
+        "name": "Equalizer 60 Hz"
+      },
+      "eq_230": {
+        "name": "Equalizer 230 Hz"
+      },
+      "eq_910": {
+        "name": "Equalizer 910 Hz"
+      },
+      "eq_3600": {
+        "name": "Equalizer 3.6 kHz"
+      },
+      "eq_14000": {
+        "name": "Equalizer 14 kHz"
+      }
+    }
+  },
+  "services": {
+    "say": {
+      "name": "Say on speaker",
+      "description": "A chime and a spoken message on the speakers. No speakers selected means all of them.",
+      "fields": {
+        "message": {
+          "name": "Message",
+          "description": "What to say."
+        },
+        "sender": {
+          "name": "From",
+          "description": "If set, the speaker says «<from> передаёт: …»."
+        },
+        "device_id": {
+          "name": "Speakers",
+          "description": "Empty means all speakers."
+        }
+      }
+    }
+  }
+}

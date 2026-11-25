@@ -1,0 +1,46 @@
+services:
+  yse:
+    build: ./stand
+    image: yse-home:local
+    container_name: yse-home
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      LOCAL_IP: ${YSE_IP}
+      BIND_IP: ${YSE_IP}
+      BUILTIN_DNS: "1"
+      DNS_SINK_ALL: "1"
+      PYTHONUNBUFFERED: "1"
+      ENABLE_SNI_GATEWAY: "1"
+      SNI_GATEWAY_PORT: "443"
+      HTTPS_PORT: "8443"
+      EQUASAR_TLS_HOST: "127.0.0.1"
+      SNI_DEFAULT_EQUASAR: "1"
+      SNI_DENY_OTA: "1"
+      SNI_DENY_HOSTS: androidtvprod.s3.yandex.net,quasar.s3.yandex.net,ota.yandex.net
+      SNI_DENY_SUFFIXES: .ota.yandex.net,.svc.cdn.yandex.net
+      REGISTER_HONEST: "1"
+      BIND_PLAIN_SYNC: "1"
+      LOCK_SKIP: ${YSE_LOCK_SKIP:-}
+      OTA_CRITICAL: "0"
+      STAND_QUASAR_URL: http://127.0.0.1
+    volumes:
+      - ./firmware:/opt/lite-kit/firmware
+      - ./log:/opt/lite-kit/log
+      - ./run:/opt/lite-kit/run
+      - ./certs:/opt/lite-kit/certs
+    networks:
+      lan:
+        ipv4_address: ${YSE_IP}
+    command: ["python3", "/opt/yse-lock/entrypoint.py"]
+
+networks:
+  lan:
+    driver: macvlan
+    driver_opts:
+      parent: ${YSE_NIC}
+    ipam:
+      config:
+        - subnet: ${YSE_SUBNET}
+          gateway: ${YSE_GW}
+          ip_range: ${YSE_IP}/32

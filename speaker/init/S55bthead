@@ -1,0 +1,25 @@
+#!/bin/sh
+DIR=/data/opt/yandex-station
+case "$1" in
+start)
+  if [ -f "$DIR/settings/bt.txt" ] && [ "$(cat "$DIR/settings/bt.txt")" = "1" ]; then
+    "$DIR/bin/bthead" apply >>"$DIR/bt.log" 2>&1
+  fi
+  ;;
+stop)
+  if [ -f "$DIR/bt.pid" ]; then
+    pid=$(cat "$DIR/bt.pid")
+    kill -TERM "$pid" 2>/dev/null
+    kill -TERM -"$pid" 2>/dev/null
+    sleep 1
+    kill -KILL "$pid" 2>/dev/null
+    kill -KILL -"$pid" 2>/dev/null
+    rm -f "$DIR/bt.pid"
+  fi
+  ;;
+restart)
+  "$0" stop
+  "$0" start
+  ;;
+esac
+exit 0

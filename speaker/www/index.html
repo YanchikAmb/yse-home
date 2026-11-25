@@ -1,0 +1,1739 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Колонка</title>
+<style>
+  :root { color-scheme: light; }
+  html, body { height: 100%; overflow: hidden; }
+  body { margin: 0; font: 14px/1.35 "Segoe UI", sans-serif; background: #e7f2fb; color: #16324a; }
+  main { box-sizing: border-box; height: 100%; max-width: 1180px; margin: 0 auto; padding: 10px 12px; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; }
+  header { display: flex; gap: 8px; align-items: center; }
+  h1 { font-size: 20px; margin: 0; color: #145ea8; }
+  header input { width: 180px; margin: 0; }
+  .board { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 1fr); gap: 8px; }
+  section { min-height: 0; background: #fff; border: 1px solid #b9d7f0; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .side { overflow: auto; }
+  .side > .frame { flex: 0 0 auto; }
+  h2 { font-size: 15px; margin: 0; color: #145ea8; }
+  label { color: #3d6284; }
+  input, select, textarea { box-sizing: border-box; width: 100%; margin: 0; padding: 6px 8px; border-radius: 7px; border: 1px solid #b7d0e8; background: #fff; color: #16324a; font: inherit; }
+  input[type="checkbox"] { width: 16px; height: 16px; padding: 0; accent-color: #f08a24; }
+  input[type="color"] { width: 42px; height: 28px; padding: 2px; }
+  input[type="range"] { padding: 0; accent-color: #1d6fbf; }
+  .face { display: flex; flex-direction: column; gap: 4px; }
+  .frame { border: 1px solid #7eb0de; border-radius: 8px; background: #f7fbff; padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; min-height: 0; }
+  #heard { margin: 0; min-height: 2.6em; max-height: 4.4em; overflow: auto; flex: 0 0 auto; }
+  #persona { min-height: 4.6em; resize: vertical; flex: 0 0 auto; }
+  #alarms { display: flex; flex-direction: column; gap: 4px; max-height: 10em; overflow: auto; }
+  #alarms .grow { cursor: pointer; }
+  #alarms .off { color: #8aa3ba; }
+  .alarm-set select { width: auto; flex: 0 0 auto; }
+  .alarm-days { flex-wrap: wrap; gap: 8px; }
+  .alarm-days label { display: flex; align-items: center; gap: 3px; }
+  #alarms:empty { display: none; }
+  #people, #playlists { display: flex; flex-direction: column; gap: 4px; overflow: auto; flex-shrink: 0; }
+  #people { max-height: 4.4em; }
+  #voices, #people-new { display: flex; flex-direction: column; gap: 4px; }
+  #voices .row select { width: 11em; flex: 0 0 auto; }
+  a { color: #145ea8; }
+  #playlists { max-height: 14em; }
+  #music-now { min-height: 1.3em; margin: 0; color: #145ea8; }
+  #lyrics { margin: 0; min-height: 3.2em; max-height: 6.4em; overflow: auto; white-space: pre-wrap; color: #16324a; font: 13px/1.35 "Segoe UI", sans-serif; }
+  .player { display: flex; gap: 6px; align-items: center; }
+  .player button { width: 38px; height: 34px; padding: 6px; display: grid; place-items: center; }
+  .player svg { width: 18px; height: 18px; fill: currentColor; }
+  .player button.on { outline: 2px solid #f08a24; }
+  #people button, #playlists button, .net { text-align: left; background: #f4f9fd; color: #16324a; border: 1px solid transparent; font-weight: 500; }
+  #people button.on, #playlists button.on, .net.on { border-color: #1d6fbf; }
+  .alarm-set input { width: 0; flex: 1 1 auto; min-width: 0; }
+  .alarm-set button { width: auto; }
+  .mark { min-width: 3.2em; text-align: right; color: #145ea8; }
+  button { border: 0; border-radius: 7px; padding: 6px 10px; background: #1d6fbf; color: #fff; font-weight: 650; cursor: pointer; }
+  button.ghost { background: #fff; color: #145ea8; border: 1px solid #8eb7e0; }
+  button.danger { background: #fff; color: #c2410c; border: 1px solid #f0b48a; }
+  .row { display: flex; gap: 6px; align-items: center; }
+  .row.off { opacity: 0.4; }
+  .row.off input { cursor: default; }
+  .grow { flex: 1; min-width: 0; }
+  .err { margin: 0; min-width: 8em; color: #c2410c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .board.locked { pointer-events: none; opacity: 0.45; }
+  .nets { overflow: auto; min-height: 0; display: flex; flex-direction: column; gap: 4px; }
+  .net { display: grid; grid-template-columns: 46px 64px minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+  .bars { letter-spacing: 1px; color: #1d6fbf; }
+  .dbm { color: #5d7c99; }
+  .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .now { color: #145ea8; font-size: 12px; }
+  #clock { margin: 0 0 0 auto; font-size: 15px; white-space: nowrap; color: #145ea8; }
+  .meta { margin: 0; color: #5d7c99; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  dialog { width: min(420px, calc(100vw - 32px)); box-sizing: border-box; border: 1px solid #7eb0de; border-radius: 12px; padding: 12px; color: #16324a; }
+  dialog[open] { display: flex; flex-direction: column; gap: 8px; }
+  dialog::backdrop { background: rgba(22, 50, 74, 0.35); }
+  dialog select { width: auto; }
+  .eq-bands { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; justify-items: center; padding: 4px 0; }
+  .eq-band { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .eq-band input { writing-mode: vertical-lr; direction: rtl; width: 28px; height: 160px; }
+  .eq-band span { font-size: 12px; color: #5d7c99; }
+  .eq-band b { font-size: 12px; color: #145ea8; min-width: 3em; text-align: center; }
+  #train-box { width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; }
+  #train-box .frame { flex: 0 0 auto; }
+  .tr-prompt { margin: 2px 0; min-height: 1.4em; font-size: 20px; text-align: center; color: #145ea8; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Колонка</h1>
+    <p id="clock" class="now">—</p>
+    <input id="token" name="yse-panel-key" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" readonly placeholder="ключ панели" aria-label="Ключ панели">
+    <button id="save-token" type="button">Открыть</button>
+    <p id="msg" class="err"></p>
+  </header>
+  <div class="board locked">
+    <section>
+      <div class="row">
+        <h2 class="grow">Сети рядом</h2>
+        <button id="rescan" class="ghost" type="button">Обновить</button>
+      </div>
+      <div id="nets" class="nets"></div>
+      <div class="row" style="margin-top:8px">
+        <input id="wpsk" class="grow" type="password" maxlength="63" autocomplete="new-password" placeholder="пароль выбранной сети" aria-label="Пароль сети">
+        <button id="wifi" class="danger" type="button">Подключить</button>
+      </div>
+      <label class="row"><input id="bt" type="checkbox"> Гарнитура: звук и микрофон для телефона или компьютера</label>
+      <p id="board" class="mark"></p>
+      <textarea id="cmd-text" maxlength="300" rows="2" placeholder="Команда, как голосом: включи свет" aria-label="Команда"></textarea>
+      <button id="cmd-send" type="button">Отправить команду</button>
+      <textarea id="say-text" maxlength="300" rows="2" placeholder="Текст, который колонка произнесёт выбранным голосом" aria-label="Озвучить"></textarea>
+      <button id="say-send" class="ghost" type="button">Озвучить</button>
+      <div id="alarms"></div>
+      <div class="row alarm-set">
+        <input id="alarm-time" type="time" aria-label="Время будильника">
+        <select id="alarm-repeat" aria-label="Повтор будильника">
+          <option value="-">один раз</option>
+          <option value="1111100">по будням</option>
+          <option value="0000011">по выходным</option>
+          <option value="1111111">каждый день</option>
+          <option value="pick">по дням…</option>
+        </select>
+      </div>
+      <div id="alarm-days" class="row alarm-days" hidden>
+        <label><input type="checkbox">пн</label><label><input type="checkbox">вт</label><label><input type="checkbox">ср</label><label><input type="checkbox">чт</label><label><input type="checkbox">пт</label><label><input type="checkbox">сб</label><label><input type="checkbox">вс</label>
+      </div>
+      <div class="row alarm-set">
+        <input id="alarm-label" maxlength="40" placeholder="подпись, необязательно" aria-label="Подпись будильника">
+        <button id="alarm-clock" class="ghost" type="button">Добавить</button>
+        <button id="alarm-cancel" class="ghost" type="button" hidden>Отмена</button>
+      </div>
+      <div class="row alarm-set">
+        <input id="alarm-mins" type="number" min="1" max="1440" inputmode="numeric" placeholder="минуты" aria-label="Через сколько минут">
+        <button id="alarm-in" class="ghost" type="button">Через</button>
+      </div>
+      <p id="alarm-tone" class="meta">Мелодия: …</p>
+      <div class="row">
+        <label class="grow" for="alarm-vol">Громкость будильника</label>
+        <span id="alarm-vol-n" class="mark">40%</span>
+      </div>
+      <input id="alarm-vol" type="range" min="5" max="100" value="40" aria-label="Громкость будильника">
+      <div class="row alarm-set">
+        <input id="alarm-file" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac,.aac" hidden>
+        <button id="alarm-own" class="ghost" type="button">Своя</button>
+        <button id="alarm-builtin" class="ghost" type="button">Встроенная</button>
+      </div>
+      <div class="row alarm-set">
+        <input id="alarm-q" class="grow" maxlength="80" placeholder="трек из Яндекс Музыки" aria-label="Мелодия из Яндекс Музыки">
+        <button id="alarm-find" class="ghost" type="button">Найти</button>
+      </div>
+      <div id="alarm-hits"></div>
+      <div class="face">
+        <div class="row">
+          <label class="grow" for="volume">Громкость</label>
+          <span id="vol-n" class="mark">10%</span>
+        </div>
+        <input id="volume" type="range" min="0" max="100" value="10">
+        <div class="pair">
+          <button id="eq-open" class="ghost" type="button">Эквалайзер</button>
+          <button id="msg-open" class="ghost" type="button">Сообщение</button>
+        </div>
+        <div class="row">
+          <label class="grow"><input id="ring" type="checkbox" checked> Кольцо</label>
+          <input id="ring-color" type="color" value="#3aa0ff" aria-label="Цвет кольца">
+        </div>
+        <div class="row">
+          <label class="grow" for="ring-bright">Яркость</label>
+          <span id="bright-n" class="mark">160</span>
+        </div>
+        <input id="ring-bright" type="range" min="0" max="255" value="160">
+        <select id="ring-effect" aria-label="Эффект кольца">
+          <option value="wave">Волна</option>
+          <option value="breathe">Дыхание</option>
+          <option value="spin">Вращение</option>
+          <option value="fill">Заливка</option>
+          <option value="spark">Искры</option>
+          <option value="shift">Перелив</option>
+          <option value="comet">Комета</option>
+          <option value="aurora">Сияние</option>
+          <option value="twinkle">Мерцание</option>
+        </select>
+        <label class="row"><input id="wake-sound" type="checkbox" checked> Звук на слово</label>
+        <label class="row"><input id="lamp" type="checkbox"> Светильник</label>
+        <div class="row">
+          <input id="lamp-color" type="color" value="#ffd8a8" aria-label="Цвет светильника">
+          <label class="grow" for="lamp-bright">Яркость света</label>
+          <span id="lamp-n" class="mark">180</span>
+        </div>
+        <input id="lamp-bright" type="range" min="1" max="255" value="180">
+      </div>
+    </section>
+    <section class="side">
+      <h2>Нейросеть</h2>
+      <select id="nn-kind" aria-label="Нейросеть">
+        <option value="">Не выбрана</option>
+        <option value="yandex">Яндекс</option>
+        <option value="ha">Home Assistant</option>
+        <option value="assist">Assist (звук в HA)</option>
+        <option value="openai">OpenAI-совместимая (ChatGPT, Grok, своя)</option>
+        <option value="google">Google, режим ИИ</option>
+        <option value="custom">Свой адрес</option>
+      </select>
+      <input id="nn" type="url" placeholder="адрес своей сети" aria-label="Адрес своей сети" hidden>
+      <div id="llm" hidden>
+        <input id="llm-url" type="url" maxlength="200" placeholder="https://api.openai.com/v1" aria-label="Адрес нейросети">
+        <input id="llm-model" type="text" maxlength="80" placeholder="модель, например gpt-4o-mini" aria-label="Модель">
+        <input id="llm-key" type="password" maxlength="200" autocomplete="off" placeholder="ключ API" aria-label="Ключ API">
+      </div>
+      <p id="nn-note" class="meta" hidden>Яндекс выбран. После слова колонка ответит голосом.</p>
+      <h2>Новости</h2>
+      <select id="news-kind" aria-label="Новости">
+        <option value="yandex">Яндекс</option>
+        <option value="google">Google, режим ИИ</option>
+        <option value="openai">Своя (Grok, Gemini и другие)</option>
+      </select>
+      <div id="news-llm" hidden>
+        <input id="news-url" type="url" maxlength="200" placeholder="https://api.x.ai/v1" aria-label="Адрес сети для новостей">
+        <input id="news-model" type="text" maxlength="80" placeholder="модель, например grok-4" aria-label="Модель для новостей">
+        <input id="news-key" type="password" maxlength="200" autocomplete="off" placeholder="ключ API" aria-label="Ключ сети для новостей">
+      </div>
+      <p class="meta">Новости, курсы и вопросы вроде «кто такой» задаются этой сети. Google — тот же режим ИИ, что в нейросети. У своей сети адрес и ключ отдельные от разговора.</p>
+      <h2>Распознавание</h2>
+      <select id="stt" aria-label="Распознавание">
+        <option value="vosk-small">Vosk малый (сервер)</option>
+        <option value="vosk">Vosk большой (сервер)</option>
+        <option value="whisper">Whisper (сервер, видеокарта)</option>
+        <option value="gigaam">GigaAM (сервер, видеокарта)</option>
+        <option value="yandex">Яндекс (облако)</option>
+        <option value="ha">Home Assistant</option>
+      </select>
+      <label id="local-row" class="row off"><input id="local" type="checkbox" disabled> Локально, на самой колонке</label>
+      <p id="stt-note" class="meta"></p>
+      <h2>Голос</h2>
+      <div class="row">
+        <select id="voice" aria-label="Голос">
+          <option value="alisa">Алиса</option>
+          <option value="dmitry">Дмитрий</option>
+          <option value="svetlana">Светлана</option>
+          <option value="own:jarvis">Джарвис (свой сервер)</option>
+          <option value="own:jarvis_new">Джарвис новый (свой сервер)</option>
+          <option value="own:vihrov">Вихров (свой сервер)</option>
+          <option value="own:baya">Silero Бая (свой сервер)</option>
+          <option value="own:eugene">Silero Евгений (свой сервер)</option>
+          <option value="custom">Свой</option>
+        </select>
+        <input id="voice-custom" type="text" maxlength="40" placeholder="имя голоса" hidden aria-label="Свой голос">
+      </div>
+      <h2>Слово</h2>
+      <select id="wake" aria-label="Слово пробуждения">
+        <option value="джарвис-локально">Джарвис локально (на колонке)</option>
+        <option value="джарвис">Джарвис (сервер)</option>
+        <option value="алиса">Алиса (штатная модель Яндекса, на колонке)</option>
+        <option value="яндекс">Яндекс (штатная модель Яндекса, на колонке)</option>
+      </select>
+      <div class="row">
+        <p class="meta grow">Слово можно доучить на голосах семьи и звуке дома.</p>
+        <button id="train-open" class="ghost" type="button">Обучить</button>
+      </div>
+      <div class="frame">
+        <h2>Слышит</h2>
+        <p id="heard">После слова здесь будет фраза</p>
+      </div>
+      <h2>Характер</h2>
+      <textarea id="persona" maxlength="3000" rows="10" placeholder="Как говорить: коротко, спокойно, по делу" aria-label="Характер"></textarea>
+      <h2>Голоса</h2>
+      <p id="voices-state" class="meta">Скажите «Джарвис, запомни мой голос» или нажмите «Познакомиться».</p>
+      <div id="voices"></div>
+      <button id="voice-enroll" class="ghost" type="button">Познакомиться</button>
+      <h2>Яндекс Музыка</h2>
+      <p id="music-state" class="meta">Сначала человек входит один раз со своего телефона.</p>
+      <div id="people"></div>
+      <div id="people-new"></div>
+      <div id="playlists"></div>
+      <div class="row">
+        <input id="person-name" type="text" maxlength="40" placeholder="имя, например Аня" aria-label="Имя">
+        <button id="person-add" class="ghost" type="button">Войти</button>
+      </div>
+      <p id="music-code" class="meta"></p>
+      <p id="music-now" class="meta"></p>
+      <div class="player" aria-label="Плеер">
+        <button id="music-prev" class="icon" type="button" aria-label="Назад"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zm3.5 7 9 6.5v-13z"/></svg></button>
+        <button id="music-play" class="icon" type="button" aria-label="Играть"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+        <button id="music-pause" class="icon" type="button" aria-label="Пауза"><svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg></button>
+        <button id="music-stop" class="icon" type="button" aria-label="Стоп"><svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg></button>
+        <button id="music-next" class="icon" type="button" aria-label="Дальше"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM5.5 5.5l9 6.5-9 6.5z"/></svg></button>
+        <button id="music-like" class="icon" type="button" aria-label="Лайк"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.6-7 9-7 9z"/></svg></button>
+        <button id="music-dislike" class="icon" type="button" aria-label="Дизлайк"><svg viewBox="0 0 24 24"><path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"/></svg></button>
+      </div>
+      <div class="frame">
+        <h2>Текст песни</h2>
+        <pre id="lyrics"></pre>
+      </div>
+      <h2>Home Assistant</h2>
+      <p id="ha-state" class="meta">Проверяю…</p>
+      <button id="save" type="button">Сохранить</button>
+    </section>
+  </div>
+</main>
+<dialog id="eq-box" aria-label="Эквалайзер">
+  <div class="row">
+    <h2 class="grow">Эквалайзер</h2>
+    <select id="eq-preset" aria-label="Готовые настройки">
+      <option value="0 0 0 0 0">Обычный</option>
+      <option value="6 3 0 0 0">Больше баса</option>
+      <option value="-2 0 3 3 0">Голос</option>
+      <option value="0 0 0 3 6">Больше высоких</option>
+      <option value="5 2 -1 2 5">Громкий</option>
+      <option value="2 1 0 -2 -4">Мягкий</option>
+      <option value="-6 -3 0 0 0">Меньше баса</option>
+      <option value="">Свой</option>
+    </select>
+  </div>
+  <div id="eq-bands" class="eq-bands"></div>
+  <p id="eq-note" class="meta">Меняется сразу, в том числе посреди песни.</p>
+  <div class="pair">
+    <button id="eq-reset" class="ghost" type="button">Сбросить</button>
+    <button id="eq-close" type="button">Закрыть</button>
+  </div>
+</dialog>
+<dialog id="msg-box" aria-label="Сообщение на другую колонку">
+  <h2>Сообщение</h2>
+  <select id="msg-to" aria-label="Куда"></select>
+  <textarea id="msg-text" maxlength="200" rows="3" placeholder="Ужин готов, идите есть" aria-label="Текст сообщения"></textarea>
+  <p id="msg-state" class="meta">Голосом после слова: «передай в спальню, что ужин готов» или «объяви всем …».</p>
+  <div class="pair">
+    <button id="msg-close" class="ghost" type="button">Закрыть</button>
+    <button id="msg-send" type="button">Отправить</button>
+  </div>
+</dialog>
+<dialog id="train-box" aria-label="Обучение слова">
+  <div class="row">
+    <h2 class="grow">Обучение слова</h2>
+    <select id="tr-word" aria-label="Слово"></select>
+  </div>
+  <input id="tr-who" type="text" maxlength="24" placeholder="Кто говорит, например Антон" aria-label="Кто говорит">
+  <div class="frame">
+    <div class="row"><b class="grow">1. Слово</b><span id="tr-say-n" class="mark"></span></div>
+    <p id="tr-prompt" class="tr-prompt"></p>
+    <p id="tr-say-state" class="meta">Каждому из домашних — 30 повторов. Говорите с разного расстояния, громко и тихо, как обычно зовёте колонку.</p>
+    <div class="pair">
+      <button id="tr-say" type="button">Начать серию</button>
+      <button id="tr-undo" class="ghost" type="button" disabled>Удалить последнюю</button>
+    </div>
+  </div>
+  <div class="frame">
+    <div class="row"><b class="grow">2. Другие фразы</b><span id="tr-other-n" class="mark"></span></div>
+    <p id="tr-other-prompt" class="tr-prompt"></p>
+    <p id="tr-other-state" class="meta">Около 20 обычных фраз. Нажмите и прочитайте ту, что покажет страница: так модель учится не путать слово с речью.</p>
+    <button id="tr-other" class="ghost" type="button">Записать фразу</button>
+  </div>
+  <div class="frame">
+    <label class="row"><input id="tr-bg" type="checkbox"> <b class="grow">3. Записывать фон дома</b></label>
+    <p id="tr-bg-state" class="meta"></p>
+  </div>
+  <div class="frame">
+    <div class="row"><b class="grow">4. Срабатывания</b><span id="tr-hard-n" class="mark"></span></div>
+    <p id="tr-hard-state" class="meta">Моменты, когда модель сработала или почти сработала. Послушайте и отметьте, было ли слово.</p>
+    <div id="tr-hard-row" class="row" hidden>
+      <button id="tr-hard-play" class="ghost" type="button">Ещё раз</button>
+      <button id="tr-hard-yes" class="ghost" type="button">Было слово</button>
+      <button id="tr-hard-no" class="ghost" type="button">Не было</button>
+      <button id="tr-hard-skip" class="ghost" type="button">Не понять</button>
+    </div>
+    <button id="tr-hard" class="ghost" type="button">Проверить</button>
+  </div>
+  <div class="frame">
+    <b>5. Обучение</b>
+    <p id="tr-job" class="meta"></p>
+    <div class="pair">
+      <button id="tr-start" type="button">Начать обучение</button>
+      <button id="tr-apply" class="ghost" type="button" hidden>Применить на всех колонках</button>
+    </div>
+    <button id="tr-rollback" class="danger" type="button" hidden>Вернуть прошлую модель</button>
+  </div>
+  <button id="tr-close" class="ghost" type="button">Закрыть</button>
+</dialog>
+<script>
+const tokenEl = document.getElementById("token");
+const msg = document.getElementById("msg");
+const voiceEl = document.getElementById("voice");
+const voiceCustom = document.getElementById("voice-custom");
+const netsEl = document.getElementById("nets");
+const knownVoices = ["alisa", "dmitry", "svetlana", "own:jarvis", "own:jarvis_new", "own:vihrov", "own:baya", "own:eugene"];
+const board = document.querySelector(".board");
+let selected = "";
+let current = "";
+let savedKey = "";
+
+function say(text, ok) {
+  msg.textContent = text || "";
+  msg.style.color = ok ? "#145ea8" : "#c2410c";
+}
+
+function lockBoard(locked) {
+  board.classList.toggle("locked", locked);
+}
+
+function typedKey() {
+  return tokenEl.value.replace(/\s+/g, "");
+}
+
+async function api(path, opts) {
+  const headers = Object.assign({"X-Token": savedKey}, (opts && opts.headers) || {});
+  const res = await fetch(path, Object.assign({}, opts, {headers}));
+  const text = await res.text();
+  let data = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      throw new Error("Ответ оборвался");
+    }
+  }
+  if (res.status === 401) {
+    savedKey = "";
+    localStorage.removeItem("yse-panel");
+    localStorage.removeItem("ystoken");
+    tokenEl.placeholder = "ключ панели";
+    lockBoard(true);
+    throw new Error("Неверный ключ");
+  }
+  if (!res.ok) throw new Error(data.error || ("Ошибка " + res.status));
+  return data;
+}
+
+function voiceValue() {
+  return voiceEl.value === "custom" ? voiceCustom.value.trim() : voiceEl.value;
+}
+
+function showVoice(value) {
+  if (knownVoices.indexOf(value) >= 0) {
+    voiceEl.value = value;
+    voiceCustom.hidden = true;
+  } else {
+    voiceEl.value = value ? "custom" : "alisa";
+    voiceCustom.value = value || "";
+    voiceCustom.hidden = !value;
+  }
+}
+
+voiceEl.addEventListener("change", () => {
+  voiceCustom.hidden = voiceEl.value !== "custom";
+});
+
+function bars(dbm) {
+  const n = dbm >= -50 ? 4 : dbm >= -60 ? 3 : dbm >= -70 ? 2 : 1;
+  return "▮".repeat(n) + "▯".repeat(4 - n);
+}
+
+function draw(nets) {
+  netsEl.replaceChildren();
+  if (!nets.length) {
+    const empty = document.createElement("p");
+    empty.className = "meta";
+    empty.textContent = "Сети не видны";
+    netsEl.appendChild(empty);
+    return;
+  }
+  let marked = false;
+  nets.forEach((net) => {
+    const here = net.current && !marked;
+    if (here) marked = true;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "net" + (net.ssid === selected ? " on" : "");
+    const b = document.createElement("span");
+    b.className = "bars";
+    b.textContent = bars(net.dbm);
+    const d = document.createElement("span");
+    d.className = "dbm";
+    d.textContent = net.dbm + " дБм";
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = net.ssid;
+    const mark = document.createElement("span");
+    mark.className = "now";
+    mark.textContent = here ? "сейчас" : (net.band === 5 ? "5 ГГц" : "2.4");
+    btn.append(b, d, name, mark);
+    btn.addEventListener("click", () => {
+      selected = net.ssid;
+      draw(nets);
+    });
+    netsEl.appendChild(btn);
+  });
+}
+
+async function scan() {
+  say("Ищу сети…", true);
+  const data = await api("/api/wifi");
+  current = data.now || "";
+  if (!selected) selected = current;
+  draw(data.nets || []);
+  say(current ? ("Сейчас: " + current) : "К сети не подключена", true);
+}
+
+function showNn(value) {
+  const kind = document.getElementById("nn-kind");
+  const url = document.getElementById("nn");
+  if (value === "yandex" || value === "ha" || value === "assist" || value === "openai" || value === "google") {
+    kind.value = value;
+    url.hidden = true;
+    url.value = "";
+  } else if (value) {
+    kind.value = "custom";
+    url.hidden = false;
+    url.value = value;
+  } else {
+    kind.value = "";
+    url.hidden = true;
+    url.value = "";
+  }
+  showNnNote();
+}
+
+function showNnNote() {
+  const kind = document.getElementById("nn-kind").value;
+  const note = document.getElementById("nn-note");
+  const notes = {
+    yandex: "Яндекс выбран. Команды дома (свет, розетки, сцены) выполняет Home Assistant, остальное отвечает Яндекс.",
+    ha: "Home Assistant выбран. Колонка сама разбирает фразу и отправляет текст помощнику HA, ответ звучит голосом колонки.",
+    assist: "Assist выбран. Звук после слова уходит в HA, в его помощнике должно быть выбрано распознавание речи.",
+    openai: "Своя нейросеть по протоколу OpenAI. Команды дома выполняет Home Assistant, время, температуру и погоду колонка знает сама, остальное отвечает нейросеть с характером ниже.",
+    google: "Google, режим ИИ. Вопрос пишется в чат поиска Google, ответ читается вслух. Характер ниже уходит в этот чат. Команды дома выполняет Home Assistant.",
+  };
+  note.textContent = notes[kind] || "";
+  note.hidden = !notes[kind];
+  document.getElementById("llm").hidden = kind !== "openai";
+  showSttNote();
+}
+
+function showNews(value) {
+  const kind = value === "openai" || value === "google" ? value : "yandex";
+  document.getElementById("news-kind").value = kind;
+  document.getElementById("news-llm").hidden = kind !== "openai";
+}
+
+function showSttNote() {
+  const kind = document.getElementById("nn-kind").value;
+  const box = document.getElementById("local");
+  const local = box.checked && !box.disabled;
+  const note = document.getElementById("stt-note");
+  document.getElementById("stt").disabled = local || kind === "assist";
+  if (kind === "assist") {
+    note.textContent = "В режиме Assist фразу распознаёт HA своим помощником.";
+  } else if (local) {
+    note.textContent = "Фразу разбирает сама колонка, сервер получает уже текст.";
+  } else {
+    note.textContent = "Сервер распознаёт фразу выбранным способом, ответ — от нейросети выше.";
+  }
+}
+
+function nnValue() {
+  const kind = document.getElementById("nn-kind").value;
+  if (kind === "yandex" || kind === "ha" || kind === "assist" || kind === "openai" || kind === "google") return kind;
+  if (kind === "custom") return document.getElementById("nn").value.trim();
+  return "";
+}
+
+function showWake(value) {
+  const sel = document.getElementById("wake");
+  if (![...sel.options].some((o) => o.value === value)) {
+    const opt = document.createElement("option");
+    opt.value = value;
+    opt.textContent = value + " (своя модель)";
+    sel.appendChild(opt);
+  }
+  sel.value = value;
+}
+
+function fill(data) {
+  showNn(data.nn || "");
+  showVoice(data.voice || "");
+  document.getElementById("persona").value = data.persona || "";
+  document.getElementById("llm-url").value = data.llm_url || "";
+  document.getElementById("llm-model").value = data.llm_model || "";
+  document.getElementById("llm-key").value = "";
+  document.getElementById("llm-key").placeholder = data.llm_key_set ? "ключ сохранён" : "ключ API";
+  showNews(data.news || "yandex");
+  document.getElementById("news-url").value = data.news_url || "";
+  document.getElementById("news-model").value = data.news_model || "";
+  document.getElementById("news-key").value = "";
+  document.getElementById("news-key").placeholder = data.news_key_set ? "ключ сохранён" : "ключ API";
+  document.getElementById("stt").value = data.stt || "vosk-small";
+  const localOk = !!data.local_ok;
+  const localBox = document.getElementById("local");
+  document.getElementById("local-row").classList.toggle("off", !localOk);
+  localBox.disabled = !localOk;
+  localBox.checked = localOk && data.local === "1";
+  showSttNote();
+  showWake(data.wake || "джарвис");
+  document.getElementById("bt").checked = data.bt === "1";
+  const board = [];
+  if (data.lux != null) board.push("свет " + Number(data.lux).toFixed(1) + " лк");
+  if (data.chip_c != null) board.push("плата " + Number(data.chip_c).toFixed(0) + "°");
+  if (data.watts != null) board.push(Number(data.watts).toFixed(1) + " Вт");
+  if (data.headphones === true) board.push("наушники вставлены");
+  else if (data.headphones === false) board.push("без наушников");
+  document.getElementById("board").textContent = board.join(" · ");
+  loadPeople();
+  loadVoices();
+  const volume = data.volume || "10";
+  const bright = data.ring_bright || "160";
+  const color = String(data.ring_color || "3aa0ff").replace("#", "");
+  document.getElementById("volume").value = volume;
+  document.getElementById("vol-n").textContent = volume + "%";
+  document.getElementById("ring").checked = data.ring !== "0";
+  document.getElementById("ring-color").value = "#" + color;
+  document.getElementById("ring-bright").value = bright;
+  document.getElementById("bright-n").textContent = bright;
+  document.getElementById("wake-sound").checked = data.wake_sound !== "0";
+  document.getElementById("ring-effect").value = data.ring_effect || "wave";
+  const lampColor = String(data.lamp_color || "ffd8a8").replace("#", "");
+  const lampBright = data.lamp_bright || "180";
+  document.getElementById("lamp").checked = data.lamp === "1";
+  document.getElementById("lamp-color").value = "#" + lampColor;
+  document.getElementById("lamp-bright").value = lampBright;
+  document.getElementById("lamp-n").textContent = lampBright;
+  showEq(data.eq);
+  if (data.wifi_now) current = data.wifi_now;
+}
+
+function payload() {
+  return {
+    nn: nnValue(),
+    voice: voiceValue(),
+    persona: document.getElementById("persona").value.replace(/\s+/g, " ").trim(),
+    stt: document.getElementById("stt").value,
+    local: (document.getElementById("local").checked && !document.getElementById("local").disabled) ? "1" : "0",
+    llm_url: document.getElementById("llm-url").value.trim(),
+    llm_model: document.getElementById("llm-model").value.trim(),
+    llm_key: document.getElementById("llm-key").value.trim(),
+    news: document.getElementById("news-kind").value,
+    news_url: document.getElementById("news-url").value.trim(),
+    news_model: document.getElementById("news-model").value.trim(),
+    news_key: document.getElementById("news-key").value.trim(),
+    wake: document.getElementById("wake").value.trim(),
+    bt: document.getElementById("bt").checked ? "1" : "0",
+    wifi_ssid: selected,
+    wifi_psk: document.getElementById("wpsk").value,
+    ring: document.getElementById("ring").checked ? "1" : "0",
+    ring_color: document.getElementById("ring-color").value.slice(1),
+    ring_bright: document.getElementById("ring-bright").value,
+    wake_sound: document.getElementById("wake-sound").checked ? "1" : "0",
+    ring_effect: document.getElementById("ring-effect").value,
+    volume: document.getElementById("volume").value,
+    lamp: document.getElementById("lamp").checked ? "1" : "0",
+    lamp_color: document.getElementById("lamp-color").value.slice(1),
+    lamp_bright: document.getElementById("lamp-bright").value
+  };
+}
+
+let faceTimer = null;
+function postJson(body) {
+  return api("/api/settings", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body)
+  });
+}
+
+function postFace() {
+  const bright = document.getElementById("ring-bright").value;
+  document.getElementById("bright-n").textContent = bright;
+  clearTimeout(faceTimer);
+  faceTimer = setTimeout(() => {
+    postJson({
+      ring: document.getElementById("ring").checked ? "1" : "0",
+      ring_color: document.getElementById("ring-color").value.slice(1),
+      ring_bright: bright,
+      wake_sound: document.getElementById("wake-sound").checked ? "1" : "0",
+      ring_effect: document.getElementById("ring-effect").value
+    }).then(() => say("Кольцо сохранено", true)).catch((e) => say(e.message));
+  }, 180);
+}
+
+async function save() {
+  if (!savedKey) throw new Error("Введите ключ и нажмите «Открыть»");
+  const body = payload();
+  if (body.wifi_psk && (body.wifi_psk.length < 8 || body.wifi_psk.length > 63)) {
+    throw new Error("Пароль сети — от 8 до 63 символов");
+  }
+  await api("/api/settings", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body)
+  });
+}
+
+async function fillSettings() {
+  fill(await api("/api/settings"));
+}
+
+async function useKey(key) {
+  const next = String(key || "").replace(/\s+/g, "");
+  if (!next) throw new Error("Введите ключ этой колонки");
+  savedKey = next;
+  await fillSettings();
+  localStorage.setItem("yse-panel", savedKey);
+  localStorage.removeItem("ystoken");
+  tokenEl.value = "";
+  tokenEl.placeholder = "панель открыта";
+  tokenEl.setAttribute("readonly", "readonly");
+  lockBoard(false);
+  say("Панель открыта", true);
+  scan().catch((e) => say(e.message));
+}
+
+async function claimPanel() {
+  const res = await fetch("/api/panel-claim", {method: "POST"});
+  if (!res.ok) return false;
+  const data = await res.json().catch(() => ({}));
+  if (!data.token) return false;
+  await useKey(data.token);
+  return true;
+}
+
+document.getElementById("save-token").addEventListener("click", () => {
+  useKey(typedKey()).catch((e) => say(e.message));
+});
+tokenEl.addEventListener("focus", () => tokenEl.removeAttribute("readonly"));
+tokenEl.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    useKey(typedKey()).catch((e) => say(e.message));
+  }
+});
+document.getElementById("rescan").addEventListener("click", () => {
+  scan().catch((e) => say(e.message));
+});
+document.getElementById("save").addEventListener("click", () => {
+  save().then(fillSettings).then(() => say("Сохранено", true)).catch((e) => say(e.message));
+});
+const volumeEl = document.getElementById("volume");
+let volumeLock = false;
+let volumeDirty = false;
+function showVolume(value) {
+  const text = String(value);
+  if (volumeLock || text === volumeEl.value) return;
+  volumeEl.value = text;
+  document.getElementById("vol-n").textContent = text + "%";
+}
+volumeEl.addEventListener("pointerdown", () => {
+  volumeLock = true;
+  volumeDirty = false;
+});
+volumeEl.addEventListener("input", () => {
+  volumeDirty = true;
+  volumeLock = true;
+  document.getElementById("vol-n").textContent = volumeEl.value + "%";
+});
+volumeEl.addEventListener("pointerup", () => {
+  if (!volumeDirty) volumeLock = false;
+});
+volumeEl.addEventListener("pointercancel", () => {
+  volumeLock = false;
+  volumeDirty = false;
+});
+volumeEl.addEventListener("change", () => {
+  const value = volumeEl.value;
+  volumeDirty = false;
+  volumeLock = true;
+  document.getElementById("vol-n").textContent = value + "%";
+  postJson({volume: value}).then(() => say("Громкость " + value + "%", true)).catch((e) => say(e.message)).finally(() => {
+    volumeLock = false;
+  });
+});
+document.getElementById("ring").addEventListener("change", postFace);
+document.getElementById("ring-color").addEventListener("change", postFace);
+document.getElementById("ring-bright").addEventListener("input", () => {
+  document.getElementById("bright-n").textContent = document.getElementById("ring-bright").value;
+});
+document.getElementById("ring-bright").addEventListener("change", postFace);
+document.getElementById("wake-sound").addEventListener("change", postFace);
+document.getElementById("ring-effect").addEventListener("change", postFace);
+document.getElementById("nn-kind").addEventListener("change", () => {
+  const custom = document.getElementById("nn-kind").value === "custom";
+  document.getElementById("nn").hidden = !custom;
+  showNnNote();
+});
+document.getElementById("news-kind").addEventListener("change", () => {
+  showNews(document.getElementById("news-kind").value);
+});
+document.getElementById("local").addEventListener("change", showSttNote);
+function postLamp() {
+  const bright = document.getElementById("lamp-bright").value;
+  document.getElementById("lamp-n").textContent = bright;
+  postJson({
+    lamp: document.getElementById("lamp").checked ? "1" : "0",
+    lamp_color: document.getElementById("lamp-color").value.slice(1),
+    lamp_bright: bright
+  }).then(() => say("Светильник сохранён", true)).catch((e) => say(e.message));
+}
+document.getElementById("lamp").addEventListener("change", postLamp);
+document.getElementById("lamp-color").addEventListener("change", postLamp);
+document.getElementById("lamp-bright").addEventListener("input", () => {
+  document.getElementById("lamp-n").textContent = document.getElementById("lamp-bright").value;
+});
+document.getElementById("lamp-bright").addEventListener("change", postLamp);
+
+const eqBox = document.getElementById("eq-box");
+const eqPreset = document.getElementById("eq-preset");
+const eqNames = ["60 Гц", "230 Гц", "910 Гц", "3,6 кГц", "14 кГц"];
+const eqInputs = [];
+let eqTimer = null;
+eqNames.forEach((name) => {
+  const band = document.createElement("label");
+  const value = document.createElement("b");
+  const input = document.createElement("input");
+  const caption = document.createElement("span");
+  band.className = "eq-band";
+  input.type = "range";
+  input.min = "-12";
+  input.max = "12";
+  input.step = "1";
+  input.value = "0";
+  input.setAttribute("aria-label", name);
+  caption.textContent = name;
+  input.addEventListener("input", () => {
+    showEqValues();
+    postEq();
+  });
+  band.append(value, input, caption);
+  document.getElementById("eq-bands").appendChild(band);
+  eqInputs.push({input, value});
+});
+function eqText() {
+  return eqInputs.map((band) => band.input.value).join(" ");
+}
+function showEqValues() {
+  eqInputs.forEach((band) => {
+    const n = Number(band.input.value);
+    band.value.textContent = (n > 0 ? "+" : "") + n + " дБ";
+  });
+  const text = eqText();
+  eqPreset.value = Array.from(eqPreset.options).some((o) => o.value === text) ? text : "";
+}
+function showEq(text) {
+  const gains = String(text || "0 0 0 0 0").split(" ");
+  eqInputs.forEach((band, i) => { band.input.value = gains[i] || "0"; });
+  showEqValues();
+}
+function postEq() {
+  clearTimeout(eqTimer);
+  eqTimer = setTimeout(() => {
+    postJson({eq: eqText()}).then(() => say("Эквалайзер сохранён", true)).catch((e) => say(e.message));
+  }, 150);
+}
+eqPreset.addEventListener("change", () => {
+  if (!eqPreset.value) return;
+  showEq(eqPreset.value);
+  postEq();
+});
+document.getElementById("eq-open").addEventListener("click", () => {
+  api("/api/settings").then((data) => showEq(data.eq)).catch(() => {});
+  eqBox.showModal();
+});
+document.getElementById("eq-reset").addEventListener("click", () => {
+  showEq("0 0 0 0 0");
+  postEq();
+});
+document.getElementById("eq-close").addEventListener("click", () => eqBox.close());
+
+const msgBox = document.getElementById("msg-box");
+const msgTo = document.getElementById("msg-to");
+const msgState = document.getElementById("msg-state");
+const msgHint = msgState.textContent;
+document.getElementById("msg-open").addEventListener("click", () => {
+  msgState.textContent = msgHint;
+  msgBox.showModal();
+  api("/api/message").then((data) => {
+    const peers = data.peers || [];
+    msgTo.replaceChildren();
+    if (!peers.length) {
+      msgState.textContent = "Других колонок на сервере нет.";
+      return;
+    }
+    if (peers.length > 1) msgTo.add(new Option("Все колонки", "all"));
+    peers.forEach((p) => msgTo.add(new Option(p.area && p.area !== p.name ? p.name + " · " + p.area : p.name, p.id)));
+  }).catch((e) => { msgState.textContent = "Список колонок не пришёл: " + e.message; });
+});
+document.getElementById("msg-send").addEventListener("click", () => {
+  const text = document.getElementById("msg-text").value.replace(/\s+/g, " ").replace(/["'\\]/g, "").trim();
+  if (!text) { msgState.textContent = "Напишите текст."; return; }
+  if (!msgTo.value) { msgState.textContent = "Выберите колонку."; return; }
+  msgState.textContent = "Отправляю…";
+  api("/api/message", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({to: msgTo.value, text})
+  }).then((data) => {
+    if (data.ok) {
+      msgState.textContent = "Отправлено.";
+      document.getElementById("msg-text").value = "";
+    } else if (data.failed && data.failed.length) {
+      msgState.textContent = "Не ответила колонка: " + data.failed.join(", ") + ".";
+    } else {
+      msgState.textContent = "Не отправилось.";
+    }
+  }).catch((e) => { msgState.textContent = e.message; });
+});
+document.getElementById("msg-close").addEventListener("click", () => msgBox.close());
+
+const trainBox = document.getElementById("train-box");
+const trWord = document.getElementById("tr-word");
+const trWho = document.getElementById("tr-who");
+const trSayBtn = document.getElementById("tr-say");
+const trUndo = document.getElementById("tr-undo");
+const trBg = document.getElementById("tr-bg");
+const trHardRow = document.getElementById("tr-hard-row");
+let trState = null;
+let trRun = false;
+let trBusy = false;
+let trLast = "";
+let trPoll = 0;
+let trHardItem = null;
+let trClip = null;
+trWho.value = localStorage.getItem("yse-train-who") || "";
+
+const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+
+function trPerson() {
+  const name = trWho.value.trim().replace(/[^0-9A-Za-zА-Яа-яЁё_-]+/g, "_").slice(0, 24).replace(/^_+|_+$/g, "");
+  return name || "гость";
+}
+
+function trPost(path, extra) {
+  const body = Object.assign({word: trWord.value || undefined, person: trWho.value.trim()}, extra || {});
+  return api("/api/train/" + path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+}
+
+function trSum(map) {
+  return Object.values(map || {}).reduce((a, b) => a + b, 0);
+}
+
+function trClock(sec) {
+  const d = new Date(sec * 1000);
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+
+function trCheck(r) {
+  return "слово " + r.say_hit + " из " + r.say_total
+    + ", фон " + r.bg_fires + " раз за " + r.bg_hours + " ч"
+    + ", фразы " + (r.other_fires + r.hard_fires) + " из " + (r.other_total + r.hard_total);
+}
+
+function paintJob(s) {
+  const job = s.job || {};
+  const el = document.getElementById("tr-job");
+  const said = trSum(s.people);
+  const bgMin = trSum(s.bg.minutes);
+  const running = job.state === "running" || job.state === "queued";
+  const result = job.result || null;
+  document.getElementById("tr-start").disabled = running || said < s.say_min;
+  document.getElementById("tr-apply").hidden = !(job.state === "done" && job.action === "start" && result);
+  document.getElementById("tr-rollback").hidden = running || !((s.model.history || []).length);
+  if (job.state === "queued") {
+    el.textContent = "В очереди…";
+  } else if (job.state === "running") {
+    const pct = job.progress ? " · " + Math.round(job.progress * 100) + "%" : "";
+    el.textContent = (job.step || "Идёт обучение") + pct;
+  } else if (job.state === "failed") {
+    el.textContent = "Не получилось: " + (job.error || "ошибка");
+  } else if (job.state === "done" && job.action === "start" && result) {
+    el.textContent = "Старая модель: " + trCheck(result.old) + ". Новая: " + trCheck(result.new) + ". "
+      + (result.better ? "Новая лучше — можно применять." : "Новая не лучше — лучше не применять, а добавить записей.");
+  } else if (job.state === "done") {
+    el.textContent = job.step || "Готово";
+  } else if (job.other_word && (job.other_state === "running" || job.other_state === "queued")) {
+    el.textContent = "Сейчас обучается слово «" + job.other_word + "».";
+  } else {
+    el.textContent = "Нужно не меньше " + s.say_min + " повторов слова (сейчас " + said + ") и желательно час фона (сейчас "
+      + bgMin + " мин). Обучение идёт на сервере 20–40 минут; работающая модель меняется только по кнопке «Применить».";
+  }
+}
+
+function paintTrain(s) {
+  trState = s;
+  if (trWord.options.length !== s.words.length) {
+    trWord.replaceChildren();
+    s.words.forEach((word) => {
+      const opt = document.createElement("option");
+      opt.value = word;
+      opt.textContent = word.charAt(0).toUpperCase() + word.slice(1);
+      trWord.append(opt);
+    });
+  }
+  trWord.value = s.word;
+  const mine = (s.people || {})[trPerson()] || 0;
+  document.getElementById("tr-say-n").textContent = mine + " из " + s.say_min + " · всего " + trSum(s.people);
+  document.getElementById("tr-other-n").textContent = ((s.other || {})[trPerson()] || 0) + " · всего " + trSum(s.other);
+  const on = s.bg.until * 1000 > Date.now();
+  if (document.activeElement !== trBg) trBg.checked = on;
+  const bgMin = trSum(s.bg.minutes);
+  const here = (s.bg.minutes || {})[s.room] || 0;
+  document.getElementById("tr-bg-state").textContent = (on
+    ? "Пишется во всех комнатах до " + trClock(s.bg.until) + ". "
+    : "Включите на вечер, когда дома обычная жизнь: разговоры, телевизор, музыка. Пишет все колонки, 4 часа. ")
+    + "Записано " + bgMin + " мин (здесь " + here + "). Звук хранится только на сервере и удаляется после обучения.";
+  document.getElementById("tr-hard-n").textContent = "непроверенных " + s.hard.open;
+  paintJob(s);
+}
+
+function refreshTrain() {
+  const q = trWord.value ? "?word=" + encodeURIComponent(trWord.value) : "";
+  return api("/api/train/state" + q).then(paintTrain).catch((e) => {
+    document.getElementById("tr-job").textContent = e.message;
+  });
+}
+
+async function trTake(kind, promptEl) {
+  const r = await trPost(kind);
+  promptEl.textContent = kind === "say"
+    ? "Говорите: «" + trWord.value + "»"
+    : "Читайте: «" + r.prompt + "»";
+  await sleep(r.sec * 1000 + 300);
+  promptEl.textContent = "…";
+  for (let i = 0; i < 24; i++) {
+    const res = await api("/api/train/take?id=" + encodeURIComponent(r.id));
+    if (res.done) return res;
+    await sleep(250);
+  }
+  return {done: true, ok: false, why: "сервер не ответил"};
+}
+
+function trResultText(res) {
+  if (!res.ok) return "Не записано: " + res.why;
+  const heard = res.score === null || res.score === undefined ? "" : ", модель сейчас уверена на " + Math.round(res.score * 100) + "%";
+  return "Записано" + heard + ".";
+}
+
+async function trSeries() {
+  const promptEl = document.getElementById("tr-prompt");
+  const stateEl = document.getElementById("tr-say-state");
+  localStorage.setItem("yse-train-who", trWho.value.trim());
+  trRun = true;
+  trSayBtn.textContent = "Стоп";
+  try {
+    while (trRun && trainBox.open) {
+      promptEl.textContent = "Приготовьтесь…";
+      await sleep(1300);
+      if (!trRun) break;
+      const res = await trTake("say", promptEl);
+      stateEl.textContent = trResultText(res);
+      if (res.ok && res.id) {
+        trLast = res.id;
+        trUndo.disabled = false;
+      }
+      await refreshTrain();
+      const mine = ((trState && trState.people) || {})[trPerson()] || 0;
+      if (trState && mine >= trState.say_min) {
+        stateEl.textContent = "Готово: " + mine + " повторов. Передайте телефон следующему или запишите ещё.";
+        break;
+      }
+    }
+  } catch (e) {
+    stateEl.textContent = e.message;
+  }
+  trRun = false;
+  promptEl.textContent = "";
+  trSayBtn.textContent = "Начать серию";
+}
+
+trSayBtn.addEventListener("click", () => {
+  if (trRun) {
+    trRun = false;
+    return;
+  }
+  if (!trWho.value.trim()) {
+    document.getElementById("tr-say-state").textContent = "Сначала впишите, кто говорит.";
+    trWho.focus();
+    return;
+  }
+  trSeries();
+});
+
+trUndo.addEventListener("click", () => {
+  if (!trLast) return;
+  trPost("drop", {id: trLast}).then(() => {
+    trLast = "";
+    trUndo.disabled = true;
+    document.getElementById("tr-say-state").textContent = "Последняя запись удалена.";
+    refreshTrain();
+  }).catch((e) => { document.getElementById("tr-say-state").textContent = e.message; });
+});
+
+document.getElementById("tr-other").addEventListener("click", async () => {
+  const stateEl = document.getElementById("tr-other-state");
+  const promptEl = document.getElementById("tr-other-prompt");
+  if (trBusy || trRun) return;
+  if (!trWho.value.trim()) {
+    stateEl.textContent = "Сначала впишите, кто говорит.";
+    trWho.focus();
+    return;
+  }
+  localStorage.setItem("yse-train-who", trWho.value.trim());
+  trBusy = true;
+  try {
+    const res = await trTake("other", promptEl);
+    stateEl.textContent = res.ok ? "Записано." : "Не записано: " + res.why;
+    refreshTrain();
+  } catch (e) {
+    stateEl.textContent = e.message;
+  }
+  promptEl.textContent = "";
+  trBusy = false;
+});
+
+trBg.addEventListener("change", () => {
+  trPost("bg", {on: trBg.checked, hours: 4}).then(refreshTrain).catch((e) => {
+    document.getElementById("tr-bg-state").textContent = e.message;
+  });
+});
+
+async function trPlay() {
+  if (!trHardItem) return;
+  const url = "/api/train/clip?word=" + encodeURIComponent(trWord.value) + "&id=" + encodeURIComponent(trHardItem.id);
+  const res = await fetch(url, {headers: {"X-Token": savedKey}});
+  if (!res.ok) {
+    document.getElementById("tr-hard-state").textContent = "Запись не открылась";
+    return;
+  }
+  const blob = await res.blob();
+  if (trClip) URL.revokeObjectURL(trClip.src);
+  trClip = new Audio(URL.createObjectURL(blob));
+  trClip.play().catch(() => {});
+}
+
+async function trHardNext() {
+  const stateEl = document.getElementById("tr-hard-state");
+  try {
+    const data = await api("/api/train/hard?word=" + encodeURIComponent(trWord.value));
+    const items = data.items || [];
+    if (!items.length) {
+      trHardItem = null;
+      trHardRow.hidden = true;
+      stateEl.textContent = "Непроверенных нет.";
+      return;
+    }
+    trHardItem = items[0];
+    const when = trHardItem.at ? new Date(trHardItem.at * 1000).toLocaleString("ru-RU", {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"}) : "";
+    stateEl.textContent = "Колонка ." + trHardItem.room + ", " + when + ": модель "
+      + (trHardItem.kind === "hit" ? "сработала" : "почти сработала") + " (" + Math.round((trHardItem.peak || 0) * 100) + "%). Было слово?";
+    trHardRow.hidden = false;
+    trPlay();
+  } catch (e) {
+    stateEl.textContent = e.message;
+  }
+}
+
+function trLabel(label) {
+  if (!trHardItem) return;
+  trPost("label", {id: trHardItem.id, label}).then(() => {
+    refreshTrain();
+    trHardNext();
+  }).catch((e) => { document.getElementById("tr-hard-state").textContent = e.message; });
+}
+
+document.getElementById("tr-hard").addEventListener("click", trHardNext);
+document.getElementById("tr-hard-play").addEventListener("click", trPlay);
+document.getElementById("tr-hard-yes").addEventListener("click", () => trLabel("yes"));
+document.getElementById("tr-hard-no").addEventListener("click", () => trLabel("no"));
+document.getElementById("tr-hard-skip").addEventListener("click", () => trLabel("skip"));
+
+function trAction(path) {
+  trPost(path).then(refreshTrain).catch((e) => { document.getElementById("tr-job").textContent = e.message; });
+}
+
+document.getElementById("tr-start").addEventListener("click", () => trAction("start"));
+document.getElementById("tr-apply").addEventListener("click", () => {
+  const result = trState && trState.job && trState.job.result;
+  if (result && !result.better && !confirm("Новая модель на проверке не лучше старой. Всё равно применить?")) return;
+  trAction("apply");
+});
+document.getElementById("tr-rollback").addEventListener("click", () => {
+  if (confirm("Вернуть модель, которая работала до последнего применения?")) trAction("rollback");
+});
+trWord.addEventListener("change", refreshTrain);
+trWho.addEventListener("change", () => {
+  localStorage.setItem("yse-train-who", trWho.value.trim());
+  if (trState) paintTrain(trState);
+});
+
+document.getElementById("train-open").addEventListener("click", () => {
+  trainBox.showModal();
+  refreshTrain();
+  clearInterval(trPoll);
+  trPoll = setInterval(() => {
+    if (!trainBox.open) {
+      clearInterval(trPoll);
+      return;
+    }
+    if (!trRun && !trBusy) refreshTrain();
+  }, 3000);
+});
+document.getElementById("tr-close").addEventListener("click", () => {
+  trRun = false;
+  trainBox.close();
+});
+trainBox.addEventListener("close", () => {
+  trRun = false;
+  clearInterval(trPoll);
+  if (trClip) trClip.pause();
+});
+document.getElementById("cmd-send").addEventListener("click", () => {
+  const text = document.getElementById("cmd-text").value.replace(/\s+/g, " ").trim();
+  if (!text) return;
+  api("/api/ask", {method: "POST", headers: {"Content-Type": "text/plain; charset=utf-8"}, body: text})
+    .then((data) => say(data.ok ? "Команда ушла" : "Колонка не ответила", !!data.ok))
+    .catch((e) => say(e.message));
+});
+document.getElementById("say-send").addEventListener("click", () => {
+  const text = document.getElementById("say-text").value.replace(/\s+/g, " ").trim();
+  if (!text) return;
+  api("/api/speak", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({text})})
+    .then((data) => say(data.ok ? "Озвучиваю выбранным голосом" : "Не вышло", !!data.ok))
+    .catch((e) => say(e.message));
+});
+let alarmStamp = "";
+let alarmEdit = "";
+const alarmRepeat = document.getElementById("alarm-repeat");
+const alarmDayBoxes = [...document.querySelectorAll("#alarm-days input")];
+
+function alarmDays() {
+  if (alarmRepeat.value !== "pick") return alarmRepeat.value;
+  const days = alarmDayBoxes.map((box) => box.checked ? "1" : "0").join("");
+  return days.includes("1") ? days : "";
+}
+
+function alarmForm(item) {
+  const days = item ? item.days : "-";
+  alarmEdit = item ? item.id : "";
+  document.getElementById("alarm-time").value = item ? item.time : "";
+  document.getElementById("alarm-label").value = item ? item.label || "" : "";
+  alarmRepeat.value = [...alarmRepeat.options].some((o) => o.value === days) ? days : "pick";
+  alarmDayBoxes.forEach((box, i) => { box.checked = days.length === 7 && days[i] === "1"; });
+  document.getElementById("alarm-days").hidden = alarmRepeat.value !== "pick";
+  document.getElementById("alarm-clock").textContent = item ? "Сохранить" : "Добавить";
+  document.getElementById("alarm-cancel").hidden = !item;
+}
+
+function alarmPost(body, done) {
+  return api("/api/alarms", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body)
+  }).then((data) => {
+    alarmStamp = "";
+    paintAlarms(data);
+    if (done) say(done, true);
+    return true;
+  }).catch((e) => {
+    say(e.message === "alarms" ? "Не вышло: проверьте время и дни" : e.message);
+    return false;
+  });
+}
+
+function paintAlarms(data) {
+  const box = document.getElementById("alarms");
+  const list = data && data.alarms ? data.alarms : [];
+  const stamp = JSON.stringify(list);
+  if (stamp === alarmStamp) return;
+  alarmStamp = stamp;
+  box.replaceChildren();
+  if (!list.length) {
+    const empty = document.createElement("p");
+    empty.className = "meta";
+    empty.textContent = "Будильников нет";
+    box.appendChild(empty);
+    return;
+  }
+  list.forEach((item) => {
+    const row = document.createElement("div");
+    const toggle = document.createElement("input");
+    const label = document.createElement("span");
+    const button = document.createElement("button");
+    const parts = [item.days === "-" ? item.when : item.time + " " + item.repeat];
+    if (item.label) parts.push(item.label);
+    if (item.on) parts.push(item.left);
+    row.className = "row";
+    toggle.type = "checkbox";
+    toggle.checked = !!item.on;
+    toggle.title = item.on ? "Выключить" : "Включить";
+    toggle.addEventListener("change", () => alarmPost({op: toggle.checked ? "on" : "off", id: item.id}));
+    label.className = "grow" + (item.on ? "" : " off");
+    label.textContent = parts.join(" · ");
+    label.title = "Изменить";
+    label.addEventListener("click", () => alarmForm(item));
+    button.className = "ghost";
+    button.type = "button";
+    button.textContent = "Удалить";
+    button.addEventListener("click", () => {
+      if (alarmEdit === item.id) alarmForm(null);
+      alarmPost({op: "del", id: item.id});
+    });
+    row.append(toggle, label, button);
+    box.appendChild(row);
+  });
+  if (list.length > 1) {
+    const all = document.createElement("button");
+    all.className = "ghost";
+    all.type = "button";
+    all.textContent = "Удалить все";
+    all.addEventListener("click", () => {
+      if (!confirm("Удалить все будильники?")) return;
+      alarmForm(null);
+      alarmPost({op: "clear"});
+    });
+    box.appendChild(all);
+  }
+}
+
+alarmRepeat.addEventListener("change", () => {
+  document.getElementById("alarm-days").hidden = alarmRepeat.value !== "pick";
+});
+document.getElementById("alarm-cancel").addEventListener("click", () => alarmForm(null));
+document.getElementById("alarm-clock").addEventListener("click", () => {
+  const when = document.getElementById("alarm-time").value;
+  const days = alarmDays();
+  const label = document.getElementById("alarm-label").value.replace(/\s+/g, " ").trim();
+  if (!when) { say("Укажите время"); return; }
+  if (!days) { say("Отметьте дни"); return; }
+  const body = alarmEdit ? {op: "edit", id: alarmEdit, when, days, label} : {when, days, label};
+  alarmPost(body, alarmEdit ? "Будильник изменён" : "Будильник поставлен").then((ok) => {
+    if (ok) alarmForm(null);
+  });
+});
+function paintTone(data) {
+  const el = document.getElementById("alarm-tone");
+  if (!el || !data) return;
+  const next = "Мелодия: " + (data.label || "Встроенная");
+  if (el.textContent !== next) el.textContent = next;
+  const slider = document.getElementById("alarm-vol");
+  if (data.volume != null && slider && document.activeElement !== slider) {
+    slider.value = data.volume;
+    document.getElementById("alarm-vol-n").textContent = data.volume + "%";
+  }
+}
+function paintHits(tracks) {
+  const box = document.getElementById("alarm-hits");
+  box.replaceChildren();
+  (tracks || []).forEach((item) => {
+    const button = document.createElement("button");
+    button.className = "ghost";
+    button.type = "button";
+    button.textContent = item.artist ? item.title + " — " + item.artist : item.title;
+    button.addEventListener("click", () => {
+      say("Ставлю мелодию");
+      api("/api/alarm-tone/track", {
+        method: "POST",
+        headers: {"Content-Type": "text/plain; charset=utf-8"},
+        body: String(item.id || "")
+      }).then((data) => {
+        if (data.error) { say(data.error); return; }
+        paintTone(data);
+        box.replaceChildren();
+        say("Мелодия будильника: " + (data.label || item.title), true);
+      }).catch((e) => say(e.message));
+    });
+    box.appendChild(button);
+  });
+}
+document.getElementById("alarm-vol").addEventListener("input", () => {
+  document.getElementById("alarm-vol-n").textContent = document.getElementById("alarm-vol").value + "%";
+});
+document.getElementById("alarm-vol").addEventListener("change", () => {
+  const value = document.getElementById("alarm-vol").value;
+  api("/api/alarm-tone/volume", {
+    method: "POST",
+    headers: {"Content-Type": "text/plain; charset=utf-8"},
+    body: value
+  }).then(() => say("Громкость будильника " + value + "%", true)).catch((e) => say(e.message));
+});
+document.getElementById("alarm-own").addEventListener("click", () => {
+  document.getElementById("alarm-file").click();
+});
+document.getElementById("alarm-file").addEventListener("change", () => {
+  const input = document.getElementById("alarm-file");
+  const file = input.files && input.files[0];
+  input.value = "";
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024) { say("Файл больше 8 МБ"); return; }
+  say("Ставлю свою мелодию");
+  api("/api/alarm-tone/file", {
+    method: "POST",
+    headers: {"Content-Type": "application/octet-stream"},
+    body: file
+  }).then((data) => {
+    if (data.error || data.ok === false) { say(data.error || "Не разобрала этот звук"); return; }
+    paintTone(data);
+    say("Будильник будет со своей мелодией", true);
+  }).catch((e) => say(e.message));
+});
+document.getElementById("alarm-builtin").addEventListener("click", () => {
+  api("/api/alarm-tone/builtin", {method: "POST", body: ""}).then((data) => {
+    if (data.error) { say(data.error); return; }
+    paintTone({label: "Встроенная"});
+    say("Будильник будет со стандартной мелодией", true);
+  }).catch((e) => say(e.message));
+});
+document.getElementById("alarm-find").addEventListener("click", () => {
+  const query = document.getElementById("alarm-q").value.replace(/\s+/g, " ").trim();
+  if (query.length < 2) { say("Напишите название"); return; }
+  api("/api/alarm-tone/search", {
+    method: "POST",
+    headers: {"Content-Type": "text/plain; charset=utf-8"},
+    body: query
+  }).then((data) => {
+    if (data.error) { say(data.error); return; }
+    if (!data.tracks || !data.tracks.length) { say("Ничего не нашла"); paintHits([]); return; }
+    paintHits(data.tracks);
+  }).catch((e) => say(e.message));
+});
+document.getElementById("alarm-in").addEventListener("click", () => {
+  const mins = document.getElementById("alarm-mins").value.trim();
+  if (!mins) { say("Укажите минуты"); return; }
+  api("/api/alarms", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({mins: mins})
+  }).then((data) => {
+    paintAlarms(data);
+    say("Будильник поставлен", true);
+  }).catch((e) => say(e.message));
+});
+setInterval(() => {
+  if (!savedKey) return;
+  api("/api/settings").then((data) => {
+    const active = document.activeElement;
+    const persona = document.getElementById("persona");
+    if (active !== persona && persona.value !== (data.persona || "")) persona.value = data.persona || "";
+    const wake = document.getElementById("wake");
+    if (active !== wake && data.wake && wake.value !== data.wake) showWake(data.wake);
+    const brain = ["nn-kind", "nn", "llm-url", "llm-model", "llm-key", "news-kind", "news-url", "news-model", "news-key"];
+    if (!brain.includes(active && active.id)) {
+      if ((data.nn || "") !== nnValue()) showNn(data.nn || "");
+      const url = document.getElementById("llm-url");
+      const model = document.getElementById("llm-model");
+      if (url.value !== (data.llm_url || "")) url.value = data.llm_url || "";
+      if (model.value !== (data.llm_model || "")) model.value = data.llm_model || "";
+      if (document.getElementById("news-kind").value !== (data.news === "openai" ? "openai" : "yandex")) {
+        showNews(data.news || "yandex");
+      }
+      const newsUrl = document.getElementById("news-url");
+      const newsModel = document.getElementById("news-model");
+      if (newsUrl.value !== (data.news_url || "")) newsUrl.value = data.news_url || "";
+      if (newsModel.value !== (data.news_model || "")) newsModel.value = data.news_model || "";
+    }
+  }).catch(() => {});
+}, 3000);
+setInterval(() => {
+  if (!savedKey) return;
+  api("/api/heard").then((data) => {
+    document.getElementById("heard").textContent = data.text ? data.text : "После слова здесь будет фраза";
+  }).catch(() => {});
+  api("/api/alarms").then(paintAlarms).catch(() => {});
+}, 400);
+setInterval(() => {
+  if (!savedKey) return;
+  api("/api/alarm-tone").then(paintTone).catch(() => {});
+}, 3000);
+setInterval(() => {
+  if (!savedKey) return;
+  api("/api/volume").then((data) => {
+    if (data.volume !== undefined) showVolume(data.volume);
+  }).catch(() => {});
+}, 250);
+document.getElementById("wifi").addEventListener("click", () => {
+  if (!selected) { say("Выберите сеть в списке"); return; }
+  if (!window.confirm("Колонка перейдёт в «" + selected + "». Если пароль неверный, страница перестанет открываться.")) return;
+  save().then(() => api("/api/wifi", {method: "POST", body: ""}))
+    .then(() => say("Переключаюсь на «" + selected + "»", true))
+    .catch((e) => say(e.message === "wifi" ? "Нужны имя сети и пароль от 8 символов" : e.message));
+});
+
+let musicWho = "";
+let playingKind = "";
+let loginWait = null;
+function paintNow(data) {
+  const now = document.getElementById("music-now");
+  const lyrics = document.getElementById("lyrics");
+  const state = data.state || "stop";
+  const song = [data.artist, data.title].filter(Boolean).join(" — ");
+  const label = state === "play" ? "Играет" : state === "pause" ? "Пауза" : "Стоп";
+  playingKind = data.kind || "";
+  now.textContent = song ? (label + ": " + song + (data.playlist ? " · " + data.playlist : "")) : "";
+  const text = data.lyrics || (song && data.lyrics_none ? "У этой песни нет текста в Яндекс Музыке." : "");
+  if (lyrics.textContent !== text) lyrics.textContent = text;
+  document.getElementById("music-play").classList.toggle("on", state === "play");
+  document.getElementById("music-pause").classList.toggle("on", state === "pause");
+  document.getElementById("music-stop").classList.toggle("on", state === "stop" && !!song);
+  document.querySelectorAll("#playlists button").forEach((button) => {
+    button.className = button.dataset.kind === playingKind && playingKind ? "on" : "";
+  });
+}
+function loadPeople() {
+  api("/api/people").then((data) => {
+    const box = document.getElementById("people");
+    musicWho = data.who || "";
+    musicNames = (data.people || []).map((p) => String(p.name || "").toLowerCase());
+    paintNewPeople();
+    box.innerHTML = "";
+    (data.people || []).forEach((person) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = person.login ? (person.name + " · " + person.login) : person.name;
+      if (person.id === musicWho) button.className = "on";
+      button.addEventListener("click", () => {
+        api("/api/music/who", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({id: person.id})
+        }).then(() => loadPeople()).catch((e) => say(e.message));
+      });
+      box.appendChild(button);
+    });
+    if (musicWho) loadPlaylists(musicWho);
+  }).catch((e) => {
+    document.getElementById("music-state").textContent = "Список людей не пришёл: " + e.message;
+  });
+}
+function loadPlaylists(id) {
+  api("/api/playlists?id=" + encodeURIComponent(id)).then((data) => {
+    const box = document.getElementById("playlists");
+    const rows = data.playlists || [];
+    box.innerHTML = "";
+    if (!rows.length) {
+      document.getElementById("music-state").textContent = "Плейлисты не пришли, пробую ещё раз…";
+      return;
+    }
+    if (!document.getElementById("music-now").textContent) {
+      document.getElementById("music-state").textContent = "Выберите плейлист.";
+    }
+    rows.forEach((row) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.kind = String(row.kind);
+      button.textContent = row.tracks ? (row.title + " · " + row.tracks) : row.title;
+      if (String(row.kind) === playingKind) button.className = "on";
+      button.addEventListener("click", () => {
+        api("/api/music/play", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({id: id, kind: String(row.kind)})
+        }).then(() => {
+          document.getElementById("music-state").textContent = "Включаю: " + row.title;
+        }).catch((e) => say(e.message));
+      });
+      box.appendChild(button);
+    });
+  }).catch(() => {
+    document.getElementById("music-state").textContent = "Музыка этого человека ещё не открывается.";
+  });
+}
+function musicCtrl(cmd) {
+  api("/api/music/ctrl", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({cmd: cmd})
+  }).then(() => api("/api/music/now").then(paintNow)).catch((e) => say(e.message));
+}
+function musicMark(cmd) {
+  api("/api/music/mark", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({cmd: cmd})
+  }).then((data) => {
+    if (data.ok) say(cmd === "like" ? "Лайк" : "Дизлайк", true);
+    else say("Сейчас ничего не играет");
+  }).catch((e) => say(e.message));
+}
+document.getElementById("music-play").addEventListener("click", () => musicCtrl("play"));
+document.getElementById("music-pause").addEventListener("click", () => musicCtrl("pause"));
+document.getElementById("music-stop").addEventListener("click", () => musicCtrl("stop"));
+document.getElementById("music-prev").addEventListener("click", () => musicCtrl("prev"));
+document.getElementById("music-next").addEventListener("click", () => musicCtrl("next"));
+document.getElementById("music-like").addEventListener("click", () => musicMark("like"));
+document.getElementById("music-dislike").addEventListener("click", () => musicMark("dislike"));
+let musicTick = 0;
+setInterval(() => {
+  if (!savedKey) return;
+  api("/api/music/now").then(paintNow).catch(() => {});
+  musicTick += 1;
+  if (musicTick % 10 === 0 && !document.querySelector("#playlists button")) loadPeople();
+}, 2000);
+document.getElementById("person-add").addEventListener("click", () => {
+  startLogin(document.getElementById("person-name").value.trim());
+});
+function startLogin(name) {
+  if (!name) { say("Напишите имя"); return; }
+  api("/api/music/login", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({name: name})
+  }).then((data) => {
+    document.getElementById("music-code").textContent =
+      "На телефоне откройте " + data.verification_url + " и введите код " + data.user_code;
+    if (loginWait) clearInterval(loginWait);
+    loginWait = setInterval(() => {
+      api("/api/music/poll?id=" + encodeURIComponent(data.id)).then((state) => {
+        if (state.error) {
+          clearInterval(loginWait);
+          say(state.error);
+          return;
+        }
+        if (state.ready === true || state.ready === "yes") {
+          clearInterval(loginWait);
+          document.getElementById("music-code").textContent = "Вошли как " + (state.login || name);
+          document.getElementById("person-name").value = "";
+          loadPeople();
+        }
+      }).catch(() => {});
+    }, 2000);
+  }).catch((e) => say(e.message));
+}
+
+let musicNames = [];
+let voiceNames = [];
+function paintNewPeople() {
+  const box = document.getElementById("people-new");
+  box.replaceChildren();
+  voiceNames.filter((name) => musicNames.indexOf(name.toLowerCase()) < 0).forEach((name) => {
+    const row = document.createElement("div");
+    const label = document.createElement("span");
+    const button = document.createElement("button");
+    row.className = "row";
+    label.className = "grow";
+    label.textContent = name + " · голос знаком, музыки нет";
+    button.className = "ghost";
+    button.type = "button";
+    button.textContent = "Войти";
+    button.addEventListener("click", () => startLogin(name));
+    row.append(label, button);
+    box.appendChild(row);
+  });
+}
+
+function voicesPost(body) {
+  return api("/api/voices", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body)
+  }).then((data) => {
+    if (data.error) throw new Error("Голос: " + data.error);
+    paintVoices(data);
+  });
+}
+
+function paintVoices(data) {
+  const box = document.getElementById("voices");
+  const list = data.voices || [];
+  const persons = data.persons || [];
+  box.replaceChildren();
+  voiceNames = list.map((v) => v.name);
+  list.forEach((voice) => {
+    const row = document.createElement("div");
+    const label = document.createElement("span");
+    row.className = "row";
+    label.className = "grow";
+    label.textContent = voice.name + " · " + voice.phrases + " фраз";
+    row.appendChild(label);
+    if (data.ha) {
+      const sel = document.createElement("select");
+      sel.setAttribute("aria-label", "Человек в HA");
+      const none = document.createElement("option");
+      none.value = "";
+      none.textContent = "не привязан к HA";
+      sel.appendChild(none);
+      persons.forEach((p) => {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = p.name;
+        sel.appendChild(opt);
+      });
+      sel.value = voice.ha || "";
+      sel.addEventListener("change", () => {
+        voicesPost({op: "bind", name: voice.name, ha: sel.value})
+          .then(() => say("Привязано", true)).catch((e) => say(e.message));
+      });
+      row.appendChild(sel);
+    }
+    const forget = document.createElement("button");
+    forget.className = "danger";
+    forget.type = "button";
+    forget.textContent = "Забыть";
+    forget.addEventListener("click", () => {
+      if (!window.confirm("Забыть голос «" + voice.name + "»?")) return;
+      voicesPost({op: "forget", name: voice.name}).catch((e) => say(e.message));
+    });
+    row.appendChild(forget);
+    box.appendChild(row);
+  });
+  document.getElementById("voices-state").textContent = list.length
+    ? "Колонка узнаёт по голосу. Голоса общие для всех колонок дома."
+    : "Пока никого. Скажите «Джарвис, запомни мой голос» или нажмите «Познакомиться».";
+  document.getElementById("ha-state").textContent = data.ha
+    ? "Колонка подключена к HA (интеграция «Yandex Station (own shell)»): плеер, кольцо, светильник, голос, будильник, «Кто говорит». Ключ этой страницы HA хранит сам — кнопка «Открыть» у устройства в HA открывает страницу без ввода ключа."
+    : "HA эту колонку не видит. В HA: Настройки → Устройства и службы → «Обнаружено» → Yandex Station (own shell). Если колонки там нет — «Добавить интеграцию» и ключ этой страницы.";
+  paintNewPeople();
+}
+
+function loadVoices() {
+  api("/api/voices").then(paintVoices).catch(() => {
+    document.getElementById("voices-state").textContent = "Сервер голосов не отвечает.";
+    document.getElementById("ha-state").textContent = "Сервер колонки не отвечает, состояние HA неизвестно.";
+  });
+}
+
+document.getElementById("voice-enroll").addEventListener("click", () => {
+  voicesPost({op: "enroll"}).then(() => say("Колонка спросит имя, отвечайте ей", true)).catch((e) => say(e.message));
+});
+function tickClock() {
+  fetch("/api/clock").then((r) => r.json()).then((data) => {
+    if (data.text) document.getElementById("clock").textContent = data.text;
+  }).catch(() => {});
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+(async function boot() {
+  const fromLink = (location.hash.match(/(?:^#|&)key=([0-9a-fA-F]{8,64})/) || [])[1] || "";
+  if (fromLink) history.replaceState(null, "", location.pathname);
+  const stored = fromLink || localStorage.getItem("yse-panel") || localStorage.getItem("ystoken") || "";
+  tokenEl.value = "";
+  if (stored) {
+    try {
+      await useKey(stored);
+      return;
+    } catch (e) {
+      savedKey = "";
+      tokenEl.value = "";
+    }
+  }
+  try {
+    if (await claimPanel()) return;
+  } catch (e) {}
+  say("Нужен ключ: кнопка «Открыть» у колонки в HA или скажите «Джарвис, открой панель» и обновите страницу");
+  tokenEl.placeholder = "ключ панели";
+})();
+</script>
+</body>
+</html>

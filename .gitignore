@@ -1,0 +1,17 @@
+.env
+log/
+run/
+certs/
+**/*.key
+**/*.pem
+**/*.zip
+**/*.img
+firmware/**
+!firmware/**/
+!firmware/**/README.md
+!firmware/README.md
+speaker/install/site.json
+speaker/install/speakers/*.json
+!speaker/install/speakers/example.json
+__pycache__/
+*.pyc

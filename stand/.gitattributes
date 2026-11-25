@@ -1,0 +1,3 @@
+lock/bin/* binary
+*.sh text eol=lf
+S99zdropbear text eol=lf

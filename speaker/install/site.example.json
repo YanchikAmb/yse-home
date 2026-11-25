@@ -1,0 +1,25 @@
+{
+  "_help": "Скопируйте в install/site.json (в git не входит) или запустите: python install/yse_station_setup.py init",
+  "server": {
+    "ip": "192.168.1.50",
+    "user": "admin",
+    "key_file": "",
+    "password": ""
+  },
+  "service_user": "admin",
+  "network": "192.168.1.0/24",
+  "ha": {
+    "url": "http://192.168.1.10:8123",
+    "ssh": "192.168.1.10",
+    "ssh_port": 22,
+    "login": "root",
+    "password": ""
+  },
+  "ref_speaker": "192.168.1.60",
+  "skip": [],
+  "clock_offset": 3,
+  "wake_model": "",
+  "yandex_token_file": "",
+  "soda_tar": "",
+  "rvc_from": "/storage/rvc"
+}

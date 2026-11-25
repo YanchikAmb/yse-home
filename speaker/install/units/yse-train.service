@@ -1,0 +1,17 @@
+[Unit]
+Description=Yandex Station wake word training
+After=network-online.target
+
+[Service]
+Type=simple
+User=administrator
+Group=administrator
+Environment=TF_CPP_MIN_LOG_LEVEL=2
+WorkingDirectory=/storage/yse-mww/trainer
+ExecStart=/storage/yse-mww/trainer/.venv/bin/python -u /storage/yse/app/wake_train.py serve
+Nice=10
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

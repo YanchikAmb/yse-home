@@ -1,0 +1,5 @@
+* text=auto
+init/S99ystation text eol=lf
+src/httpd.c text eol=lf
+www/index.html text eol=lf
+Dockerfile text eol=lf

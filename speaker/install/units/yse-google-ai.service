@@ -1,0 +1,14 @@
+[Unit]
+Description=YSE: чат Google «Режим ИИ» как нейросеть колонки
+After=network-online.target
+
+[Service]
+User=administrator
+Environment=PYTHONUNBUFFERED=1
+Environment=DISPLAY=:99
+ExecStart=/storage/yse/google-ai/venv/bin/python -u /storage/yse/app/yse_google_ai.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

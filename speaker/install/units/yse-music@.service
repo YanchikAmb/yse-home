@@ -1,0 +1,14 @@
+[Unit]
+Description=Yandex Station %i music
+After=network-online.target
+
+[Service]
+User=administrator
+Group=administrator
+EnvironmentFile=/storage/yse/%i.env
+ExecStart=/storage/yse-music/.venv/bin/python -u /storage/yse/app/yse_music.py
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

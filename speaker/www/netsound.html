@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Сеть для новой колонки</title>
+<style>
+  body { margin: 0; font: 16px/1.4 "Segoe UI", sans-serif; background: #e7f2fb; color: #16324a; }
+  main { max-width: 420px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  h1 { font-size: 22px; margin: 0; color: #145ea8; }
+  p { margin: 0; }
+  section { background: #fff; border: 1px solid #b9d7f0; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+  label { color: #3d6284; font-size: 14px; }
+  input { box-sizing: border-box; width: 100%; margin: 0; padding: 10px; border-radius: 8px; border: 1px solid #b7d0e8; font: inherit; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row input[type="checkbox"] { width: 18px; height: 18px; accent-color: #f08a24; }
+  button { font: inherit; padding: 12px; border: 0; border-radius: 8px; background: #1d6fbf; color: #fff; }
+  button.stop { background: #8a4b12; }
+  button:disabled { opacity: 0.5; }
+  .note { font-size: 14px; color: #3d6284; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Сеть для новой колонки</h1>
+  <p class="note">Для колонки, которая после сброса ждёт настройку и ещё не в Wi‑Fi. Телефон держат у её микрофонов. Пароль остаётся в телефоне и уходит только звуком.</p>
+  <section>
+    <label for="ssid">Имя сети</label>
+    <input id="ssid" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <label for="psk">Пароль</label>
+    <input id="psk" type="password" autocomplete="off">
+    <label class="row"><input id="hidden" type="checkbox">Скрытая сеть</label>
+    <label for="token">Код привязки Яндекса, если без него колонка сеть не держит</label>
+    <input id="token" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button id="play" type="button">Играть</button>
+    <button id="stop" class="stop" type="button" disabled>Стоп</button>
+    <p id="status" class="note"></p>
+  </section>
+  <p class="note">В звуке пароль сети слышен как набор тонов. Не включать при посторонних. Уже работающую колонку этим звуком не кормить и не сбрасывать. На сброшенной Станции 2 этот звук ещё не проверяли: если она не подключится, напишите.</p>
+</main>
+<script src="netsound.js"></script>
+<script>
+(function () {
+  var audio = new Audio();
+  var stopTimer = 0;
+  var status = document.getElementById("status");
+
+  function say(text) { status.textContent = text; }
+
+  function halt() {
+    clearTimeout(stopTimer);
+    audio.loop = false;
+    audio.pause();
+    audio.removeAttribute("src");
+    document.getElementById("play").disabled = false;
+    document.getElementById("stop").disabled = true;
+  }
+
+  document.getElementById("stop").addEventListener("click", function () {
+    halt();
+    say("Остановлено.");
+  });
+
+  document.getElementById("play").addEventListener("click", function () {
+    halt();
+    try {
+      var result = YseSound.encode({
+        ssid: document.getElementById("ssid").value.trim(),
+        password: document.getElementById("psk").value,
+        token: document.getElementById("token").value.trim(),
+        hidden: document.getElementById("hidden").checked
+      });
+      audio.src = URL.createObjectURL(result.wav);
+      audio.loop = true;
+      document.getElementById("play").disabled = true;
+      document.getElementById("stop").disabled = false;
+      say("Играет около 30 секунд. Держите телефон в 20–30 см от колонки, громкость телефона на максимум, без режима «без звука».");
+      audio.play();
+      stopTimer = setTimeout(function () {
+        halt();
+        say("Готово. Колонка должна появиться в вашей сети. Если нет — поднести ближе и нажать ещё раз.");
+      }, 30000);
+    } catch (error) {
+      say(error.message);
+    }
+  });
+})();
+</script>
+</body>
+</html>

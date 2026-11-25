@@ -1,0 +1,19 @@
+[Unit]
+Description=Yandex Station %i wake word
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=administrator
+Group=administrator
+EnvironmentFile=/storage/yse/%i.env
+Environment=CUDA_VISIBLE_DEVICES=
+Environment=TF_CPP_MIN_LOG_LEVEL=2
+WorkingDirectory=/storage/yse-mww
+ExecStart=/storage/yse-mww/trainer/.venv/bin/python -u /storage/yse/app/mww_wake_listen.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

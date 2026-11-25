@@ -1,0 +1,32 @@
+#!/bin/sh
+#
+# Start/stop bluealsa
+#
+
+SERVICE=bluealsa
+DAEMON="/usr/bin/$SERVICE"
+BT=/data/opt/yandex-station/settings/bt.txt
+
+case "$1" in
+start)
+  echo "Starting $SERVICE..."
+  if [ -f "$BT" ] && [ "$(cat "$BT")" = "1" ]; then
+    set -- -p a2dp-sink -p hfp-hf -p hsp-hs --sbc-quality=high
+  else
+    set -- -p a2dp-sink -p a2dp-source -p hfp-ag --sbc-quality=high
+  fi
+  start-stop-daemon -S -b -x "$DAEMON" -n "$SERVICE" -- "$@"
+  ;;
+stop)
+  echo "Stopping $SERVICE..."
+  start-stop-daemon -K -x "$DAEMON" -n "$SERVICE" -o
+  ;;
+restart)
+  "$0" stop
+  "$0" start
+  ;;
+*)
+  echo "Usage: $0 {start|stop|restart}"
+  exit 1
+esac
+exit 0

@@ -1,0 +1,40 @@
+#!/bin/sh
+DIR=/data/opt/yandex-station
+PIDFILE=$DIR/ystationd.pid
+
+start_update() {
+  if [ -x "$DIR/bin/yse-update" ]; then
+    if [ -f "$DIR/yse-update.pid" ] && kill -0 $(cat "$DIR/yse-update.pid") 2>/dev/null; then
+      return 0
+    fi
+    "$DIR/bin/yse-update" >>"$DIR/yse-update.log" 2>&1 &
+    echo $! > "$DIR/yse-update.pid"
+  fi
+}
+
+case "$1" in
+start)
+  mkdir -p "$DIR/phrases" "$DIR/www" "$DIR/bin"
+  start_update
+  if [ -f "$PIDFILE" ]; then
+    pid=$(cat "$PIDFILE")
+    if kill -0 "$pid" 2>/dev/null; then
+      exit 0
+    fi
+  fi
+  "$DIR/bin/ystationd" "$DIR" 18080 >>"$DIR/ystationd.log" 2>&1 &
+  echo $! > "$PIDFILE"
+  ;;
+stop)
+  if [ -f "$PIDFILE" ]; then
+    kill $(cat "$PIDFILE") 2>/dev/null
+    rm -f "$PIDFILE"
+  fi
+  ;;
+restart)
+  "$0" stop
+  sleep 1
+  "$0" start
+  ;;
+esac
+exit 0

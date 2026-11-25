@@ -1,0 +1,84 @@
+# Распознавание речи для колонок: Whisper на видеокарте и крупный Vosk на процессоре.
+# Модели лежат в /storage/yse/stt/models, порты открыты только для самого сервера.
+name: yse-stt
+services:
+  whisper:
+    build:
+      context: .
+      dockerfile: whisper.Dockerfile
+    image: yse-whisper:local
+    container_name: yse-whisper
+    restart: unless-stopped
+    environment:
+      WHISPER_MODEL: ${WHISPER_MODEL:-large-v3-turbo}
+      WHISPER_DEVICE: cuda
+      WHISPER_COMPUTE: int8_float16
+      HF_HOME: /models/hf
+      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
+    volumes:
+      - /storage/yse/stt/models:/models
+    ports:
+      - "127.0.0.1:18950:8000"
+    mem_limit: 3g
+    # Право открыть видеокарту хранится в юните и не слетает после daemon-reload.
+    device_cgroup_rules:
+      - "c 195:* rwm"
+      - "c 234:* rwm"
+      - "c 508:* rwm"
+    devices:
+      - "/dev/nvidia-caps/nvidia-cap1:/dev/nvidia-caps/nvidia-cap1"
+      - "/dev/nvidia-caps/nvidia-cap2:/dev/nvidia-caps/nvidia-cap2"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+  vosk:
+    build:
+      context: .
+      dockerfile: vosk.Dockerfile
+    image: yse-vosk:local
+    container_name: yse-vosk
+    restart: "no"
+    environment:
+      VOSK_MODEL: /models/vosk/${VOSK_MODEL:-vosk-model-ru-0.42}
+    volumes:
+      - /storage/yse/stt/models:/models:ro
+    ports:
+      - "127.0.0.1:18951:8000"
+    mem_limit: ${VOSK_MEM:-6g}
+    memswap_limit: ${VOSK_MEM:-6g}
+  gigaam:
+    build:
+      context: .
+      dockerfile: gigaam.Dockerfile
+    image: yse-gigaam:local
+    container_name: yse-gigaam
+    restart: unless-stopped
+    environment:
+      STT_ENGINE: gigaam
+      GIGAAM_MODEL: ${GIGAAM_MODEL:-v3_e2e_rnnt}
+      GIGAAM_ROOT: /models/gigaam
+      GIGAAM_DEVICE: cuda
+    volumes:
+      - /storage/yse/stt/models:/models
+    ports:
+      - "127.0.0.1:18953:8000"
+    mem_limit: 4g
+    # Право открыть видеокарту хранится в юните и не слетает после daemon-reload.
+    device_cgroup_rules:
+      - "c 195:* rwm"
+      - "c 234:* rwm"
+      - "c 508:* rwm"
+    devices:
+      - "/dev/nvidia-caps/nvidia-cap1:/dev/nvidia-caps/nvidia-cap1"
+      - "/dev/nvidia-caps/nvidia-cap2:/dev/nvidia-caps/nvidia-cap2"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

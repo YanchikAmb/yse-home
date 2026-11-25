@@ -1,0 +1,233 @@
+#!/bin/sh
+DIR=/data/opt/yandex-station
+PIDFILE=$DIR/house.pid
+EARPID=$DIR/ear.pid
+WAKEPID=$DIR/wake.pid
+KEYPID=$DIR/keys.pid
+ALARMPID=$DIR/alarm.pid
+CMDPID=$DIR/command.pid
+JARVISPID=$DIR/jarvis.pid
+EQPID=$DIR/eq.pid
+
+start_swap() {
+  # Mini 2 has 244 MB. The recognizer alone holds about 150 MB and the
+  # kernel kills it as soon as a phrase arrives. zram gives that spike room.
+  [ -b /dev/zram0 ] || return 0
+  grep -q '^/dev/zram0' /proc/swaps && return 0
+  if [ "$(cat /sys/block/zram0/disksize 2>/dev/null)" = 0 ]; then
+    echo lz4 > /sys/block/zram0/comp_algorithm 2>/dev/null || true
+    echo 134217728 > /sys/block/zram0/disksize || return 0
+  fi
+  mkswap /dev/zram0 >/dev/null 2>&1 || return 0
+  swapon /dev/zram0 >/dev/null 2>&1 || return 0
+  echo 10 > /proc/sys/vm/swappiness 2>/dev/null || true
+}
+
+start_house() {
+  if [ -f "$PIDFILE" ]; then
+    pid=$(cat "$PIDFILE")
+    if kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  LD_LIBRARY_PATH=/system/vendor/quasar/libs \
+    "$DIR/bin/housed" "$DIR/house.status" >>"$DIR/house.log" 2>&1 &
+  echo $! > "$PIDFILE"
+}
+
+start_wake() {
+  if [ -f "$WAKEPID" ]; then
+    pid=$(cat "$WAKEPID")
+    if kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  : > "$DIR/wake.log"
+  "$DIR/bin/wake" >>"$DIR/wake.log" 2>&1 &
+  echo $! > "$WAKEPID"
+}
+
+start_ear() {
+  if [ -f "$DIR/ear.loop" ]; then
+    lpid=$(cat "$DIR/ear.loop")
+    if kill -0 "$lpid" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  if [ -f "$EARPID" ]; then
+    pid=$(cat "$EARPID")
+    if kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  : > "$DIR/ear.log"
+  (
+    trap 'exit 0' TERM INT
+    missing=
+    while true; do
+      # Без soda/ (Мини 2, Станция 2 без распознавания на колонке) работает статическое ухо:
+      # оно только отдаёт звук фразы на сервер.
+      if [ ! -e /data/opt/yandex-station/soda/lib/ld-linux-aarch64.so.1 ]; then
+        if [ -x "$DIR/bin/ear64s" ]; then
+          "$DIR/bin/ear64s" - - live text >>"$DIR/ear.log" 2>&1
+          sleep 1
+          continue
+        fi
+        [ -n "$missing" ] || echo "ear: no soda/ and no ear64s, retry every 30 s" >>"$DIR/ear.log"
+        missing=1
+        sleep 30
+        continue
+      fi
+      missing=
+      /data/opt/yandex-station/soda/lib/ld-linux-aarch64.so.1 \
+        --library-path /data/opt/yandex-station/soda/lib \
+        "$DIR/bin/ear64" \
+        /data/opt/yandex-station/soda/model \
+        /data/opt/yandex-station/soda/libsoda.so \
+        live text >>"$DIR/ear.log" 2>&1
+      sleep 1
+    done
+  ) &
+  echo $! > "$DIR/ear.loop"
+}
+
+start_eq() {
+  if [ -f "$EQPID" ]; then
+    pid=$(cat "$EQPID")
+    if kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  "$DIR/bin/eqd" >>"$DIR/eq.log" 2>&1 &
+  echo $! > "$EQPID"
+}
+
+start_jarvis() {
+  if [ -f "$JARVISPID" ]; then
+    pid=$(cat "$JARVISPID")
+    if kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  [ -x "$DIR/bin/jarvisd" ] || return 0
+  : > "$DIR/jarvis.log"
+  "$DIR/bin/jarvisd" >>"$DIR/jarvis.log" 2>&1 &
+  echo $! > "$JARVISPID"
+}
+
+start_command() {
+  if [ -f "$CMDPID" ]; then
+    pid=$(cat "$CMDPID")
+    if kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  : > "$DIR/command.log"
+  LD_LIBRARY_PATH=/system/vendor/quasar/libs \
+    "$DIR/bin/commandd" >>"$DIR/command.log" 2>&1 &
+  echo $! > "$CMDPID"
+}
+
+start_alarm() {
+  if [ -f "$ALARMPID" ]; then
+    pid=$(cat "$ALARMPID")
+    if kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  "$DIR/bin/alarmd" >>"$DIR/alarm.log" 2>&1 &
+  echo $! > "$ALARMPID"
+}
+
+start_keys() {
+  if [ -f "$KEYPID" ]; then
+    pid=$(cat "$KEYPID")
+    if kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  "$DIR/bin/keys" >>"$DIR/keys.log" 2>&1 &
+  echo $! > "$KEYPID"
+}
+
+case "$1" in
+start)
+  mkdir -p "$DIR/bin" "$DIR/settings"
+  start_swap
+  start_house
+  start_keys
+  start_ear
+  start_alarm
+  start_command
+  start_jarvis
+  start_eq
+  ;;
+stop)
+  if [ -f "$EQPID" ]; then
+    kill $(cat "$EQPID") 2>/dev/null
+    rm -f "$EQPID"
+  fi
+  killall eqd 2>/dev/null
+  if [ -f "$JARVISPID" ]; then
+    kill $(cat "$JARVISPID") 2>/dev/null
+    rm -f "$JARVISPID"
+  fi
+  killall jarvisd 2>/dev/null
+  if [ -f "$CMDPID" ]; then
+    cpid=$(cat "$CMDPID")
+    kill "$cpid" 2>/dev/null
+    rm -f "$CMDPID"
+  fi
+  killall commandd 2>/dev/null
+  if [ -f "$ALARMPID" ]; then
+    apid=$(cat "$ALARMPID")
+    kill "$apid" 2>/dev/null
+    rm -f "$ALARMPID"
+  fi
+  killall alarmd 2>/dev/null
+  if [ -f "$KEYPID" ]; then
+    kpid=$(cat "$KEYPID")
+    kill "$kpid" 2>/dev/null
+    rm -f "$KEYPID"
+  fi
+  killall keys 2>/dev/null
+  if [ -f "$WAKEPID" ]; then
+    wpid=$(cat "$WAKEPID")
+    kill "$wpid" 2>/dev/null
+    sleep 1
+    kill -9 "$wpid" 2>/dev/null
+    rm -f "$WAKEPID"
+  fi
+  if [ -f "$DIR/ear.loop" ]; then
+    lpid=$(cat "$DIR/ear.loop")
+    kill "$lpid" 2>/dev/null
+    sleep 1
+    kill -9 "$lpid" 2>/dev/null
+    rm -f "$DIR/ear.loop"
+  fi
+  if [ -f "$EARPID" ]; then
+    epid=$(cat "$EARPID")
+    kill "$epid" 2>/dev/null
+    sleep 1
+    kill -9 "$epid" 2>/dev/null
+    rm -f "$EARPID"
+  fi
+  killall ear64 ear64s 2>/dev/null
+  printf 'led idle\n' > "$DIR/house.cmd"
+  if [ -f "$PIDFILE" ]; then
+    kill $(cat "$PIDFILE") 2>/dev/null
+    rm -f "$PIDFILE"
+  fi
+  killall housed 2>/dev/null
+  sleep 1
+  killall -9 housed 2>/dev/null
+  killall -9 arecord 2>/dev/null
+  killall -9 led_util 2>/dev/null
+  ;;
+restart)
+  "$0" stop
+  sleep 1
+  "$0" start
+  ;;
+esac
+exit 0
