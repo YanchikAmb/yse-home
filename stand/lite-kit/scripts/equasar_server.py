@@ -927,11 +927,6 @@ class EquasarHandler(http.server.BaseHTTPRequestHandler):
         return last
 
     def handle_request(self):
-        try:
-            import columns
-            columns.seen(self.client_address[0], self._request_platform())
-        except Exception:
-            pass
         clean_path = self.path.split("?")[0]
         path_l = self.path.lower()
         host_h = (self.headers.get("Host") or "").split(":")[0].lower()
@@ -1001,7 +996,12 @@ class EquasarHandler(http.server.BaseHTTPRequestHandler):
             or (path_l.startswith("/get_sync_info") and "device_id=" in path_l)
             or (path_l.startswith("/check_updates") and "device_id=" in path_l)
         )
-
+        if is_column:
+            try:
+                import columns
+                columns.seen(self.client_address[0], self._request_platform())
+            except Exception:
+                pass
 
         # --- то, что не наше: кэшируем, чтобы 429 от Яндекса не долетал до колонки ---
         if path_l.startswith("/glagol/") or path_l.startswith("/telemetry") or path_l.startswith("/metrics"):
