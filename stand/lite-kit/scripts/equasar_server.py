@@ -1598,6 +1598,12 @@ def _best_ips(client_ip=None):
 def _dns_handle(query, client_ip=None):
     qname, qtype = _dns_qname(query)
     sink = bool(qname) and (qname in DNS_NAMES or DNS_SINK_ALL)
+    if qname and (b"yandex" in qname or b"quasar" in qname):
+        try:
+            import columns
+            columns.seen(client_ip or "")
+        except Exception:
+            pass
     if sink:
         # A спрашивают -> отдаём свой IP; AAAA и остальное -> NODATA, клиент берёт A
         ips = _best_ips(client_ip) if qtype == 1 else []
@@ -1623,11 +1629,6 @@ def run_dns(port=53):
                 try:
                     data, addr = udp.recvfrom(4096)
                     if data:
-                        try:
-                            import columns
-                            columns.seen(addr[0])
-                        except Exception:
-                            pass
                         udp.sendto(_dns_handle(data, addr[0]), addr)
                 except Exception as e:
                     print(f"[!] DNS UDP: {e!r}")

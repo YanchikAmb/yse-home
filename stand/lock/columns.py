@@ -52,10 +52,11 @@ def _save(rows: list) -> None:
 
 def _own_ips() -> set:
     ips = {"127.0.0.1"}
-    for key in ("LOCAL_IP", "BIND_IP"):
-        value = (os.environ.get(key) or "").strip()
-        if value:
-            ips.add(value)
+    for key in ("LOCAL_IP", "BIND_IP", "COLUMN_IGNORE"):
+        for value in (os.environ.get(key) or "").split(","):
+            value = value.strip()
+            if value:
+                ips.add(value)
     return ips
 
 
