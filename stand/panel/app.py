@@ -165,7 +165,25 @@ def patch_platform(platform: str, patch: dict) -> dict:
 
 def read_columns() -> list:
     import columns
-    return columns.read_columns()
+    return columns.for_page(columns.read_columns())
+
+
+def probe_column(ip: str) -> dict:
+    for folder in ("/opt/yse-lock",):
+        if os.path.isdir(folder) and folder not in sys.path:
+            sys.path.insert(0, folder)
+    import lock_speaker
+    row = lock_speaker.probe((ip or "").strip())
+    return {"ok": True, "column": row}
+
+
+def confirm_column(ip: str) -> dict:
+    for folder in ("/opt/yse-lock",):
+        if os.path.isdir(folder) and folder not in sys.path:
+            sys.path.insert(0, folder)
+    import columns
+    row = columns.confirm((ip or "").strip())
+    return {"ok": True, "column": row}
 
 
 def convert_column(ip: str) -> dict:
@@ -449,7 +467,7 @@ PAGE = """<!DOCTYPE html>
   <div class="btnwrap"><button title="Обновить статус и логи" onclick="refreshAll(true)">Обновить</button></div>
 </div>
 <h2>Колонки</h2>
-<p class="hint">Колонка появляется сама, когда её DNS указывает на этот сервис. «Переделать» ставит нашу оболочку.</p>
+<p class="hint">Колонка появляется сама, когда её DNS указывает на этот сервис. «Проверить» читает модель и ключ с колонки. «Прошита» ставится только после подтверждения. «Переделать» ставит оболочку на заводскую колонку.</p>
 <ul id="col-list"></ul>
 <div id="tabs"></div>
 <div id="pane" class="pane">ждём ответ /api/status… (если зависло — Ctrl+F5)</div>
@@ -622,15 +640,27 @@ async function refreshAll(forceRebuild){
   if(list){
     const rows=ST.columns||[];
     list.innerHTML=rows.map(c=>{
+      const ip=esc(c.ip);
       const name=esc(c.title||c.platform||'колонка');
       const detail=esc(c.detail||'');
       const busy=c.job==='work'||c.job==='armed';
-      const btn=c.platform?'<button type="button" '+(busy?'disabled':'')+' onclick="convertColumn(\\''+esc(c.ip)+'\\')">Переделать</button>':'';
-      return '<li>'+esc(c.ip)+' — '+name+' '+btn+' <span class="hint">'+detail+'</span></li>';
+      let buttons='<button type="button" onclick="probeColumn(\\''+ip+'\\')">Проверить</button>';
+      if(c.shell&&!c.flashed) buttons+=' <button type="button" onclick="confirmColumn(\\''+ip+'\\')">Прошита</button>';
+      if(c.flashed) buttons+=' <span class="badge off">прошита</span>';
+      if(c.platform&&!c.flashed) buttons+=' <button type="button" '+(busy?'disabled':'')+' onclick="convertColumn(\\''+ip+'\\')">Переделать</button>';
+      const key=c.page_key?' Ключ страницы: <code>'+esc(c.page_key)+'</code>':'';
+      return '<li>'+ip+' — '+name+' '+buttons+' <span class="hint">'+detail+'</span>'+key+'</li>';
     }).join('')||'<li class="hint">пока никто не обращался</li>';
   }
   await renderPane(!!forceRebuild);
 }
+async function postColumn(path, ip){
+  const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip})});
+  if(!r.ok){ alert(await r.text()); return; }
+  await refreshAll(true);
+}
+async function probeColumn(ip){ await postColumn('/api/columns/probe', ip); }
+async function confirmColumn(ip){ await postColumn('/api/columns/confirm', ip); }
 async function convertColumn(ip){
   const r=await fetch('/api/columns/convert',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip})});
   if(!r.ok){ alert(await r.text()); return; }
@@ -700,6 +730,28 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         path = urllib.parse.urlparse(self.path).path
         RUN.mkdir(parents=True, exist_ok=True)
+        if path == "/api/columns/probe":
+            length = int(self.headers.get("Content-Length") or 0)
+            try:
+                body = json.loads(self.rfile.read(length).decode("utf-8") if length else "{}")
+            except json.JSONDecodeError:
+                body = {}
+            try:
+                self._json(200, probe_column(str(body.get("ip", ""))))
+            except (ValueError, RuntimeError) as exc:
+                self._json(400, {"error": str(exc)})
+            return
+        if path == "/api/columns/confirm":
+            length = int(self.headers.get("Content-Length") or 0)
+            try:
+                body = json.loads(self.rfile.read(length).decode("utf-8") if length else "{}")
+            except json.JSONDecodeError:
+                body = {}
+            try:
+                self._json(200, confirm_column(str(body.get("ip", ""))))
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
+            return
         if path == "/api/columns/convert":
             length = int(self.headers.get("Content-Length") or 0)
             try:

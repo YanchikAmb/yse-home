@@ -93,6 +93,48 @@ def seen(ip: str, platform: str = "") -> None:
         _save(rows)
 
 
+def apply_probe(ip: str, platform: str, page_key: str, shell: bool) -> dict:
+    """Проверка колонки. «Прошита» здесь не ставится: это только после подтверждения."""
+    with _LOCK:
+        rows = _load()
+        row = next((item for item in rows if item.get("ip") == ip), None)
+        if row is None:
+            raise ValueError("колонка ещё не появлялась")
+        if platform:
+            row["platform"] = platform
+            row["title"] = TITLES.get(platform, platform)
+        row["shell"] = bool(shell)
+        if page_key:
+            row["page_key"] = page_key
+        row["detail"] = "на колонке наша оболочка" if shell else "нашей оболочки нет"
+        _save(rows)
+        return dict(row)
+
+
+def confirm(ip: str) -> dict:
+    with _LOCK:
+        rows = _load()
+        row = next((item for item in rows if item.get("ip") == ip), None)
+        if row is None:
+            raise ValueError("колонка ещё не появлялась")
+        if not row.get("shell"):
+            raise ValueError("сначала проверка должна увидеть нашу оболочку")
+        row["flashed"] = True
+        row["detail"] = "прошита"
+        _save(rows)
+        return dict(row)
+
+
+def for_page(rows: list) -> list:
+    out = []
+    for row in rows:
+        item = dict(row)
+        if not item.get("flashed"):
+            item.pop("page_key", None)
+        out.append(item)
+    return out
+
+
 def set_job(ip: str, job: str, detail: str = "") -> None:
     with _LOCK:
         rows = _load()

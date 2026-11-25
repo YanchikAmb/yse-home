@@ -91,6 +91,30 @@ def _say(ip, msg):
         pass
 
 
+def probe(ip):
+    """Читает модель и ключ страницы. Статус «прошита» не ставит."""
+    out = _ssh(ip, (
+        "D=/data/opt/yandex-station; "
+        "if [ -s $D/token ]; then echo SHELL=yes; echo -n TOKEN=; cat $D/token; echo; "
+        "echo -n PLATFORM=; tr -d '\\r\\n' < $D/settings/vqe.txt; echo; "
+        "else echo SHELL=no; fi"
+    ))
+    text = out.stdout.decode("utf-8", "replace")
+    if out.returncode != 0 and "SHELL=" not in text:
+        raise RuntimeError("по SSH колонка не ответила")
+    shell = "SHELL=yes" in text
+    platform = ""
+    page_key = ""
+    for line in text.splitlines():
+        if line.startswith("PLATFORM="):
+            platform = line.split("=", 1)[1].strip()
+        elif line.startswith("TOKEN="):
+            page_key = line.split("=", 1)[1].strip()
+    if platform not in columns.TITLES:
+        platform = ""
+    return columns.apply_probe(ip, platform, page_key, shell)
+
+
 def request(ip):
     """Кнопка «Переделать»: человек явно попросил поставить оболочку."""
     row = columns.arm(ip)
