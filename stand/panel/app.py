@@ -501,7 +501,7 @@ PAGE = """<!DOCTYPE html>
   <div class="btnwrap"><button title="Обновить статус и логи" onclick="refreshAll(true)">Обновить</button></div>
 </div>
 <h2>Колонки</h2>
-<p class="hint">Заводская колонка появляется из DNS или из запроса с моделью. Уже с оболочкой ищется по кнопке: порт 18080 в написанной подсети. Поле сначала показывает сеть адреса сервиса, её можно заменить. Тот же поиск повторяется раз в 30 минут. «Проверить», затем «Прошита».</p>
+<p class="hint">Заводская колонка появляется из DNS или из запроса с моделью. Уже с оболочкой ищется только по кнопке: порт 18080 в написанной подсети. Поле сначала показывает сеть адреса сервиса, её можно заменить. Само по себе ничего не ищет. «Проверить», затем «Прошита».</p>
 <div class="row">
   <input id="scan-net" placeholder="192.168.0.0/24" aria-label="Подсеть" oninput="this.dataset.dirty='1'" style="padding:.45rem .6rem;border-radius:6px;border:1px solid #445;background:#1c2333;color:#e6e8ec;min-width:14rem">
   <button type="button" onclick="findColumns()">Найти колонки в сети</button>

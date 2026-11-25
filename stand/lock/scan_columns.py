@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Ищет уже прошитые колонки в сети сервиса. Списка адресов нет.
+"""Ищет уже прошитые колонки в подсети, которую написали на странице.
 
+Сама по таймеру не ходит. Запуск — кнопка «Найти колонки в сети».
 Оболочка слушает :18080 и без ключа отвечает на /api/clock.
-Сервис опрашивает адреса своей подсети и записывает тех, кто ответил.
 """
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ import os
 import socket
 import sys
 import threading
-import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
@@ -20,7 +19,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import columns
 
-EVERY = int(os.environ.get("COLUMN_SCAN_SEC", str(30 * 60)))
 PORT = 18080
 _BUSY = threading.Lock()
 
@@ -126,15 +124,8 @@ def scan_once(net=None) -> int:
 
 
 def main() -> int:
-    print("scan columns :%s every %ss, только сохранённая подсеть" % (PORT, EVERY), flush=True)
-    while True:
-        time.sleep(EVERY)
-        if not saved_net():
-            continue
-        try:
-            scan_once()
-        except Exception as exc:
-            print("scan fail %s" % type(exc).__name__, flush=True)
+    print("scan columns :%s только по кнопке" % PORT, flush=True)
+    return 0
 
 
 if __name__ == "__main__":
