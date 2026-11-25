@@ -29,13 +29,13 @@
 | Каталог `soda/` — необязательно | Google SODA для aarch64: распознавание речи прямо на Станции 2, без сервера. Не наш, в git его нет, на заводской колонке тоже. Без него фразу распознаёт сервер; Мини 2 он не нужен вовсе |
 | Аккаунт Яндекса | Голос ответов, музыка |
 
-Новый дом поднимается одним сервисом: сервер оболочек и стенд DNS/прошивок. Человек указывает IP колонки и модель (`max`, `station2`, `mini2`), ставит колонке DNS стенда и сбрасывает её. Дальше — [docs/home.md](docs/home.md). Приложение Макса собирается отдельно: [station-max](https://github.com/YanchikAmb/station-max).
+Заводскую колонку подключают по [инструкции в корне репозитория](../README.md): DNS только у этой колонки, сброс, затем IP и модель на странице сервиса. Приложение Макса собирается отдельно: [yse-max](https://github.com/YanchikAmb/yse-max).
 
 ## Быстрый старт
 
 ```
-git clone https://github.com/YanchikAmb/yandex-station.git
-cd yandex-station
+git clone https://github.com/YanchikAmb/yse-home.git
+cd yse-home/speaker
 pip install paramiko
 python install/yse_station_setup.py init        # вопросы про ваш дом, пишет install/site.json
 python install/yse_station_setup.py all --yes   # сервер, сборка, сторож, компонент HA
