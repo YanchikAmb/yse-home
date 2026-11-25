@@ -733,6 +733,67 @@ def install_root_tree(h):
         "&& rm -f /tmp/yse-s905x2-root.tgz && test -s /storage/yse/s905x2-root/src/reader4.c && echo root-tree-ok'",
         sudo=True, timeout=60)
     print((out or "").strip()[-200:])
+    install_dropbear(h)
+    ensure_ndk(h)
+
+
+def install_dropbear(h):
+    """Кладёт dropbear для Макса в /storage/yse/dropbear. Бинарники лежат в этом репозитории."""
+    src = REPO / "host" / "dropbear"
+    if not (src / "dropbear").is_file() or not (src / "dropbearkey").is_file():
+        print("нет speaker/host/dropbear")
+        return
+    h.put_bytes("/tmp/yse-dropbear", (src / "dropbear").read_bytes())
+    h.put_bytes("/tmp/yse-dropbearkey", (src / "dropbearkey").read_bytes())
+    _code, out = h.run(
+        "sudo -S -p '' bash -c 'mkdir -p /storage/yse/dropbear && "
+        "install -m 755 /tmp/yse-dropbear /storage/yse/dropbear/dropbear && "
+        "install -m 755 /tmp/yse-dropbearkey /storage/yse/dropbear/dropbearkey && "
+        "rm -f /tmp/yse-dropbear /tmp/yse-dropbearkey && echo dropbear-ok'",
+        sudo=True, timeout=30)
+    print((out or "").strip()[-200:])
+
+
+def ensure_ndk(h):
+    """NDK r26d нужен, чтобы собрать reader4. Если его нет, качается официальный архив."""
+    _code, out = h.run(
+        "if [ -x /storage/yse/android-ndk-r26d/ndk-build ] || "
+        "[ -x /home/administrator/android-ndk-r26d/ndk-build ]; then echo ndk-ok; else echo ndk-no; fi")
+    if "ndk-ok" in (out or ""):
+        print("ndk ok")
+        return
+    print("качаю Android NDK r26d")
+    _code, out = h.run(
+        "sudo -S -p '' bash -c 'mkdir -p /storage/yse && cd /tmp && "
+        "curl -fL --retry 3 -o android-ndk-r26d-linux.zip "
+        "https://dl.google.com/android/repository/android-ndk-r26d-linux.zip && "
+        "unzip -q -o android-ndk-r26d-linux.zip -d /storage/yse && "
+        "rm -f android-ndk-r26d-linux.zip && "
+        "test -x /storage/yse/android-ndk-r26d/ndk-build && echo ndk-ok'",
+        sudo=True, timeout=1800)
+    print((out or "").strip()[-200:])
+
+
+def install_google(h):
+    """Чат Google «Режим ИИ». Профиль входа не стирает. Войти один раз по VNC."""
+    user = service_user()
+    h.mkdir("/tmp/yse-host")
+    put_unit(h, "yse-google-ai.service", "/tmp/yse-host")
+    _code, out = h.run(
+        "sudo -S -p '' bash -c '"
+        "export DEBIAN_FRONTEND=noninteractive && apt-get update -qq && "
+        "apt-get install -y -qq xvfb x11vnc python3-venv && "
+        "mkdir -p /storage/yse/google-ai && chown -R %s:%s /storage/yse/google-ai && "
+        "sudo -u %s python3 -m venv /storage/yse/google-ai/venv && "
+        "sudo -u %s /storage/yse/google-ai/venv/bin/pip install -q playwright && "
+        "sudo -u %s /storage/yse/google-ai/venv/bin/playwright install chromium && "
+        "/storage/yse/google-ai/venv/bin/playwright install-deps chromium && "
+        "install -m 644 /tmp/yse-host/yse-google-ai.service /etc/systemd/system/yse-google-ai.service && "
+        "systemctl daemon-reload && systemctl enable --now yse-google-ai && "
+        "systemctl is-active yse-google-ai'"
+        % (user, user, user, user, user),
+        sudo=True, timeout=1800)
+    print((out or "").strip()[-400:])
 
 
 def cmd_server(args):
@@ -770,6 +831,7 @@ def cmd_server(args):
         "systemctl daemon-reload && systemctl enable yse-discover yse-train && systemctl restart yse-discover && "
         "sleep 5 && systemctl restart yse-train && systemctl is-active yse-discover yse-train'", sudo=True, timeout=120)
     print(out)
+    install_google(h)
     print("сторож: http://%s:%d/v1/found — HA сам покажет новые колонки" % (h.host, DISCOVER_PORT))
     return code
 
@@ -1058,11 +1120,8 @@ def cmd_prepare(args):
 def cmd_all(args):
     if not args.yes:
         raise SystemExit("нужен --yes")
-    steps = [("prepare", cmd_prepare), ("build", cmd_build), ("server", cmd_server)]
-    if args.stt:
-        steps.append(("stt", cmd_stt))
-    if args.voice:
-        steps.append(("voice", cmd_voice))
+    steps = [("prepare", cmd_prepare), ("build", cmd_build), ("server", cmd_server),
+             ("stt", cmd_stt), ("voice", cmd_voice)]
     for name, fn in steps:
         print("\n######## %s" % name)
         code = fn(args)
@@ -1239,8 +1298,8 @@ def main():
 
     p = sub.add_parser("all")
     p.add_argument("--yes", action="store_true")
-    p.add_argument("--stt", action="store_true", help="ещё Whisper и GigaAM на видеокарте")
-    p.add_argument("--voice", action="store_true", help="ещё свой голос на видеокарте")
+    p.add_argument("--stt", action="store_true", help="распознавание входит в all и без этого флага")
+    p.add_argument("--voice", action="store_true", help="свой голос входит в all и без этого флага")
     server_args(p)
     stt_args(p)
     voice_args(p)

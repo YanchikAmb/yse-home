@@ -37,6 +37,13 @@ pkill dropbear 2>/dev/null
 sleep 3
 PID=$(pidof dropbear)
 log "dropbear_pid=${PID:-none}"
+chmod 666 /dev/graphics/fb4 /dev/graphics/fb5 2>> "$LOG"
+chmod 666 /sys/class/backlight/fb4/brightness /sys/class/backlight/fb5/brightness 2>> "$LOG"
+echo 200 > /sys/class/backlight/fb4/brightness 2>> "$LOG"
+echo 255 > /sys/class/backlight/fb5/brightness 2>> "$LOG"
+echo 0 > /sys/fs/selinux/enforce 2>> "$LOG"
+log "enforce=$(getenforce 2>/dev/null)"
+log "fb4=$(ls -l /dev/graphics/fb4 2>/dev/null)"
 dmesg 2>/dev/null | grep -i avc | tail -n 5 >> "$LOG"
 date > /dev/.yse_rooted
 chmod 644 /dev/.yse_rooted

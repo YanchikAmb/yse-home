@@ -19,8 +19,26 @@ BOOT_ID_FILE = STATE_DIR / "last_boot_id"
 DONE_FILE = STATE_DIR / "done_boot_id"
 ATTEMPT_FILE = STATE_DIR / "attempted_boot_id"
 ROOT_D = Path(os.environ.get("YSE_AUTOROOT_ROOT", "/storage/yse/s905x2-root"))
-NDK = os.environ.get("YSE_AUTOROOT_NDK", "/home/administrator/android-ndk-r26d")
-LOCK_BIN = Path(os.environ.get("YSE_AUTOROOT_LOCK", "/home/administrator/yse-stand/lock/bin"))
+
+
+def ndk_path() -> str:
+    chosen = os.environ.get("YSE_AUTOROOT_NDK", "").strip()
+    if chosen:
+        return chosen
+    bundled = Path("/storage/yse/android-ndk-r26d")
+    if (bundled / "ndk-build").is_file():
+        return str(bundled)
+    return "/home/administrator/android-ndk-r26d"
+
+
+def lock_dir() -> Path:
+    chosen = os.environ.get("YSE_AUTOROOT_LOCK", "").strip()
+    if chosen:
+        return Path(chosen)
+    bundled = Path("/storage/yse/dropbear")
+    if (bundled / "dropbear").is_file():
+        return bundled
+    return Path("/home/administrator/yse-stand/lock/bin")
 AUTH_PUB = os.environ.get("YSE_AUTOROOT_KEY", "/home/administrator/.ssh/secretary_backup.pub")
 MIN_UPTIME = int(os.environ.get("YSE_AUTOROOT_MIN_UP", "300"))
 POLL = int(os.environ.get("YSE_AUTOROOT_POLL", "45"))
@@ -98,7 +116,7 @@ def ssh_up() -> bool:
 
 def build_reader4() -> bool:
     code, out = run(
-        f'cd "{ROOT_D}" && python3 tools/build.py "{NDK}" '
+        f'cd "{ROOT_D}" && python3 tools/build.py "{ndk_path()}" '
         '--payload-cmd "sh /data/local/tmp/as_payload.sh"',
         timeout=180,
     )
@@ -110,9 +128,10 @@ def build_reader4() -> bool:
 def push_prereqs() -> bool:
     if not connect():
         return False
-    if LOCK_BIN.joinpath("dropbear").is_file():
-        run(f"{ADB} push {LOCK_BIN}/dropbear /data/local/tmp/dropbear", timeout=60)
-        run(f"{ADB} push {LOCK_BIN}/dropbearkey /data/local/tmp/dropbearkey", timeout=60)
+    lock = lock_dir()
+    if lock.joinpath("dropbear").is_file():
+        run(f"{ADB} push {lock}/dropbear /data/local/tmp/dropbear", timeout=60)
+        run(f"{ADB} push {lock}/dropbearkey /data/local/tmp/dropbearkey", timeout=60)
     auth = AUTH_PUB
     run(f"test -f {auth} && {ADB} push {auth} /data/local/tmp/authorized_keys", timeout=30)
     run("cp /storage/yse/app/station_max_as_payload.sh /tmp/as_payload.sh 2>/dev/null || true", timeout=10)
@@ -131,12 +150,32 @@ def push_prereqs() -> bool:
 def run_reader4_once() -> bool:
     if not push_prereqs():
         return False
+    # adbd рвёт связь под нагрузкой. Если держать reader4 в этом shell, обрыв
+    # убивает процесс посреди ядра. Запуск отдельно, потом только читаем журнал.
     adb_shell(
-        "chmod 755 /data/local/tmp/reader4; "
+        "chmod 755 /data/local/tmp/reader4 /data/local/tmp/as_payload.sh; "
         "rm -f /data/local/tmp/r4_autoroot.log; "
-        "timeout 220 /data/local/tmp/reader4 > /data/local/tmp/r4_autoroot.log 2>&1; "
-        "tail -8 /data/local/tmp/r4_autoroot.log"
+        "toybox setsid /data/local/tmp/reader4 </dev/null >/data/local/tmp/r4_autoroot.log 2>&1 & "
+        "echo STARTED",
+        timeout=20,
     )
+    out = ""
+    deadline = time.time() + 240
+    while time.time() < deadline:
+        time.sleep(5)
+        if not connect():
+            continue
+        out = adb_shell(
+            "tail -n 30 /data/local/tmp/r4_autoroot.log 2>/dev/null; echo ---; pidof reader4 || true",
+            timeout=15,
+        )
+        if "AUTOROOT_PAYLOAD_OK" in out or "AUTOROOT_DROPBEAR_FAIL" in out:
+            break
+        alive = any(part.strip().isdigit() for part in out.split("---")[-1].split())
+        if "PGD_RESTORED" in out and not alive:
+            break
+        if not alive and "STARTED" not in out and len(out.strip()) > 80 and "PGD_RESTORED" not in out:
+            break
     out = adb_shell("grep -E AUTOROOT_PAYLOAD_OK|dropbear /data/local/tmp/r4_autoroot.log; test -f /dev/.yse_rooted && echo MARKER_OK")
     ok = "AUTOROOT_PAYLOAD_OK" in out or "MARKER_OK" in out
     if ssh_up():

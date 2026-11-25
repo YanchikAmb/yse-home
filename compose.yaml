@@ -35,6 +35,28 @@ services:
         ipv4_address: ${YSE_IP}
     command: ["python3", "/opt/yse-lock/entrypoint.py"]
 
+  # Macvlan прячет адрес сервиса от самого компьютера. Этот контейнер поднимает
+  # второй адрес на той же карте, чтобы страница открывалась и с этой машины.
+  yse-shim:
+    image: python:3.12-slim-bookworm
+    container_name: yse-shim
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - |
+        apt-get update -qq && apt-get install -y -qq iproute2 >/dev/null
+        ip link show ${YSE_NIC} >/dev/null
+        ip link set ${YSE_NIC} promisc on
+        ip link show yse-shim >/dev/null 2>&1 || ip link add yse-shim link ${YSE_NIC} type macvlan mode bridge
+        ip link set yse-shim up
+        ip addr show dev yse-shim | grep -q '${YSE_SHIM_IP}/' || ip addr add ${YSE_SHIM_IP}/32 dev yse-shim
+        ip route replace ${YSE_IP}/32 dev yse-shim
+        sleep infinity
+
 networks:
   lan:
     driver: macvlan
