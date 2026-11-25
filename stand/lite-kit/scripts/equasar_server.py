@@ -996,12 +996,6 @@ class EquasarHandler(http.server.BaseHTTPRequestHandler):
             or (path_l.startswith("/get_sync_info") and "device_id=" in path_l)
             or (path_l.startswith("/check_updates") and "device_id=" in path_l)
         )
-        if is_column:
-            try:
-                import columns
-                columns.seen(self.client_address[0], self._request_platform())
-            except Exception:
-                pass
 
         # --- то, что не наше: кэшируем, чтобы 429 от Яндекса не долетал до колонки ---
         if path_l.startswith("/glagol/") or path_l.startswith("/telemetry") or path_l.startswith("/metrics"):
@@ -1065,6 +1059,18 @@ class EquasarHandler(http.server.BaseHTTPRequestHandler):
             lip = self.client_address[0]
             if dev_id or cur:
                 _OTA_CTX[lip] = {"device_id": dev_id, "version": cur}
+            if plat:
+                try:
+                    import columns
+                    columns.seen(lip, platform=plat)
+                    if not columns.armed(lip):
+                        payload = NO_UPDATE_PAYLOAD
+                        print(f"  >>> [OTA] {lip} модель {plat}, жду кнопку «Переделать» <<<")
+                        log_local(f"OTA {plat} жду кнопку")
+                        self._send_json(payload)
+                        return
+                except Exception:
+                    pass
             if not plat:
                 _pm = re.match(r"^/([^/]+)/ota/", clean_path)
                 if _pm:
@@ -1595,13 +1601,22 @@ def _best_ips(client_ip=None):
     return ips[:1]
 
 
+def _column_qname(qname):
+    """Имя, по которому колонка узнаётся. Проверка связи и clck/strm сюда не входят."""
+    if not qname:
+        return False
+    if qname in DNS_NAMES:
+        return True
+    return qname.endswith(b".quasar.yandex.net") or qname.endswith(b".quasar.yandex.ru")
+
+
 def _dns_handle(query, client_ip=None):
     qname, qtype = _dns_qname(query)
     sink = bool(qname) and (qname in DNS_NAMES or DNS_SINK_ALL)
-    if qname and (b"yandex" in qname or b"quasar" in qname):
+    if _column_qname(qname):
         try:
             import columns
-            columns.seen(client_ip or "")
+            columns.seen(client_ip or "", dns_name=_dns_name(qname))
         except Exception:
             pass
     if sink:

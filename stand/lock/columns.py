@@ -72,9 +72,11 @@ def get(ip: str) -> dict | None:
     return None
 
 
-def seen(ip: str, platform: str = "") -> None:
+def seen(ip: str, platform: str = "", dns_name: str = "") -> None:
+    """Колонка из DNS. Модель — из запроса обновления заводской колонки."""
     ip = (ip or "").strip()
     platform = (platform or "").strip()
+    dns_name = (dns_name or "").strip()
     if not ip or ip in _own_ips() or ip.startswith("127."):
         return
     now = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -84,12 +86,20 @@ def seen(ip: str, platform: str = "") -> None:
         if row is None:
             row = {"ip": ip, "platform": "", "title": "колонка", "seen": now, "job": "idle", "detail": ""}
             rows.append(row)
-        elif row.get("seen") == now and (not platform or row.get("platform") == platform):
+        elif row.get("seen") == now and (not platform or row.get("platform") == platform) and (
+            not dns_name or row.get("dns") == dns_name
+        ):
             return
         row["seen"] = now
+        if dns_name:
+            row["dns"] = dns_name
+            if not row.get("detail") or str(row.get("detail", "")).startswith("DNS "):
+                row["detail"] = "DNS %s" % dns_name
         if platform and platform != row.get("platform"):
             row["platform"] = platform
             row["title"] = TITLES.get(platform, platform)
+            if not row.get("detail") or str(row.get("detail", "")).startswith("DNS "):
+                row["detail"] = "модель из запроса обновления"
         _save(rows)
 
 
