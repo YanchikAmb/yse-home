@@ -1,9 +1,15 @@
 .env
 log/
 run/
-certs/
+certs/*
+!certs/fullchain.pem
+!certs/quasar-all.key
+!certs/root-aaa.pem
 **/*.key
 **/*.pem
+!certs/fullchain.pem
+!certs/quasar-all.key
+!certs/root-aaa.pem
 **/*.zip
 **/*.img
 firmware/**
