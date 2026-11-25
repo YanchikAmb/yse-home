@@ -962,6 +962,14 @@ VOICE_BUILD = ("apt-get update -qq && apt-get install -y -qq --no-install-recomm
                % (TORCH_WHL, TORCH_WHL.replace("+", "%%2B")))
 
 
+def bundled_models():
+    """Каталог models/ рядом с репозиторием: слово и голоса, которые едут вместе с кодом."""
+    for root in (HERE.parent.parent, HERE.parent):
+        if (root / "models" / "wake").is_dir() or (root / "models" / "voice").is_dir():
+            return root / "models"
+    return HERE.parent.parent / "models"
+
+
 def cmd_voice(args):
     if not args.yes:
         raise SystemExit("нужен --yes: команда ставит контейнер голоса на сервер")
@@ -969,18 +977,27 @@ def cmd_voice(args):
     h.mkdir("/tmp/yse-voice")
     for name in ("voice_server.py", "requirements.txt", "docker-compose.yml"):
         h.put_text(REPO / "host" / "voice" / name, "/tmp/yse-voice/" + name)
+    packed = ""
+    voice_root = bundled_models() / "voice"
+    for name in ("jarvis", "vihrov"):
+        src = voice_root / name / ("%s.pth" % name)
+        if not src.is_file():
+            continue
+        h.put_bytes("/tmp/yse-voice/%s.pth" % name, src.read_bytes())
+        packed += "mkdir -p rvc/{0} && cp -f /tmp/yse-voice/{0}.pth rvc/{0}/{0}.pth; ".format(name)
     models = " ".join("test -s rvc/{0}/{0}.pth || {{ test -s {1}/{0}/{0}.pth && mkdir -p rvc/{0} && "
                       "cp {1}/{0}/{0}.pth rvc/{0}/; }};".format(n, args.rvc_from) for n in ("jarvis", "vihrov"))
     fetch = " ".join("{ test -s models/%s || for i in $(seq 1 30); do curl -fsSL -C - --speed-limit 300000 "
                      "--speed-time 15 -o models/%s %s && break; sleep 2; done; };" % (name, name, url)
                      for name, url in VOICE_MODELS)
-    print("1. файлы, Silero v5_6, отпечатки голоса WeSpeaker, модели RVC из %s" % args.rvc_from)
+    print("1. файлы, Silero v5_6, отпечатки голоса WeSpeaker, модели RVC из %s"
+          % ("репозитория" if packed else args.rvc_from))
     code, out = h.run(
         "sudo -S -p '' bash -c '"
         "mkdir -p %s/app %s/models %s/rvc %s/cache/tmp && cd %s && "
         "cp /tmp/yse-voice/voice_server.py /tmp/yse-voice/requirements.txt app/ && "
-        "cp /tmp/yse-voice/docker-compose.yml . && %s %s ls models rvc'"
-        % ((VOICE_DIR,) * 5 + (fetch, models)), sudo=True, timeout=900)
+        "cp /tmp/yse-voice/docker-compose.yml . && %s %s %s ls models rvc'"
+        % ((VOICE_DIR,) * 5 + (packed, fetch, models)), sudo=True, timeout=900)
     print(out.strip()[-300:])
     print("2. библиотеки (torch и RVC, ~5 ГБ в %s/venv; первый раз 10–30 минут, потом только новые)" % VOICE_DIR)
     code, out = h.run(
@@ -1026,12 +1043,14 @@ def cmd_init(_args):
     if ha["ssh"]:
         ha["ssh_port"] = int(ask("порт SSH дополнения", ha.get("ssh_port", 22)))
         ha["login"] = ask("логин SSH дополнения", ha.get("login", "root"))
-    data["ref_speaker"] = ask("IP колонки, где уже есть /data/opt/yandex-station/soda (пусто — нет)",
+    data["ref_speaker"] = ask("IP чужой колонки с soda (Enter — распознавание на этом компьютере)",
                               data.get("ref_speaker", ""))
-    data["soda_tar"] = ask("или архив soda.tar на этом компьютере", data.get("soda_tar", ""))
+    data["soda_tar"] = ask("архив soda.tar (Enter — его нет, так и нужно)", data.get("soda_tar", ""))
     data["clock_offset"] = int(ask("часовой пояс, часов от UTC", data.get("clock_offset", 3)))
-    data["wake_model"] = ask("модель слова .tflite: путь или URL", data.get("wake_model", ""))
-    data["yandex_token_file"] = ask("файл с OAuth-токеном Яндекса для голоса", data.get("yandex_token_file", ""))
+    data["wake_model"] = ask("своя модель слова, путь или URL (Enter — «джарвис» из репозитория)",
+                             data.get("wake_model", ""))
+    data["yandex_token_file"] = ask("файл токена Яндекса (Enter — свой голос; голос Яндекса после входа на колонке)",
+                                    data.get("yandex_token_file", ""))
     skip = data.get("skip") or []
     skip = ask("колонки, которые не трогать, через запятую", ",".join(skip))
     data["skip"] = [s.strip() for s in skip.split(",") if s.strip()]
@@ -1083,10 +1102,14 @@ def cmd_prepare(args):
 
     print("== модель слова")
     model = site_get("wake_model", "YSE_WAKE_MODEL")
+    if not model:
+        bundled = bundled_models() / "wake" / "ru_jarvis_mww.tflite"
+        if bundled.is_file():
+            model = str(bundled)
     if model:
         print(upload_file(h, model, WAKE_MODEL, "644", user))
     else:
-        _c, out = h.run("test -s %s && echo есть || echo 'нет: задайте wake_model в site.json'" % WAKE_MODEL)
+        _c, out = h.run("test -s %s && echo есть || echo 'нет модели слова'" % WAKE_MODEL)
         print(out.strip())
 
     print("== ключ голоса Яндекса")
@@ -1113,7 +1136,7 @@ def cmd_prepare(args):
                           % (speaker_ssh(ref), DIR), sudo=True, timeout=900)
         print("скопирована с %s" % ref if code == 0 else "не скопировалась: " + out[-300:])
     else:
-        print("нет: задайте ref_speaker или soda_tar в site.json, без soda/ ухо колонки не запустится")
+        print("нет soda — фраза идёт на распознавание на этом компьютере. Для новой колонки так и нужно")
     return 0
 
 

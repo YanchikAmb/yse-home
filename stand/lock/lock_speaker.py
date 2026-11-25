@@ -8,6 +8,7 @@
 
 import json
 import os
+import re
 import secrets
 import socket
 import subprocess
@@ -237,6 +238,7 @@ def _install_apk(ip):
     text = installed.stdout.decode("utf-8", "replace")
     if installed.returncode != 0 or "Success" not in text:
         raise RuntimeError("приложение не встало")
+    _write_server(ip)
     script = (
         "cmd appops set com.yandex.io.sdk RECORD_AUDIO deny;"
         "pm revoke com.yandex.io.sdk android.permission.RECORD_AUDIO;"
@@ -254,6 +256,19 @@ def _install_apk(ip):
         raise RuntimeError("приложение встало, настройки не применились")
     columns.set_job(ip, "done", "приложение поставлено")
     _say(ip, "приложение поставлено")
+
+
+def _write_server(ip):
+    """Адрес голоса в files/server.txt. Приложение читает его вместо константы в исходнике."""
+    host = os.environ.get("YSE_VOICE_HOST", "").strip()
+    base = os.environ.get("YSE_VOICE_BASE", "18805").strip() or "18805"
+    if not re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", host):
+        return
+    if not re.fullmatch(r"\d{2,5}", base):
+        return
+    _adb(ip, "shell",
+         "run-as com.yse.station sh -c 'mkdir -p files && printf \"%s\\n%s\\n\" > files/server.txt'"
+         % (host, base), timeout=20)
 
 
 def _port(ip, port):

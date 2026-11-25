@@ -30,6 +30,7 @@ services:
       - ./log:/opt/lite-kit/log
       - ./run:/opt/lite-kit/run
       - ./certs:/opt/lite-kit/certs
+      - ./max:/opt/yse-max:ro
     networks:
       lan:
         ipv4_address: ${YSE_IP}
