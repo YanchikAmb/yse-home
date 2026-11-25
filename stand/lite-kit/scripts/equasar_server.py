@@ -927,6 +927,11 @@ class EquasarHandler(http.server.BaseHTTPRequestHandler):
         return last
 
     def handle_request(self):
+        try:
+            import columns
+            columns.seen(self.client_address[0], self._request_platform())
+        except Exception:
+            pass
         clean_path = self.path.split("?")[0]
         path_l = self.path.lower()
         host_h = (self.headers.get("Host") or "").split(":")[0].lower()
@@ -1618,6 +1623,11 @@ def run_dns(port=53):
                 try:
                     data, addr = udp.recvfrom(4096)
                     if data:
+                        try:
+                            import columns
+                            columns.seen(addr[0])
+                        except Exception:
+                            pass
                         udp.sendto(_dns_handle(data, addr[0]), addr)
                 except Exception as e:
                     print(f"[!] DNS UDP: {e!r}")

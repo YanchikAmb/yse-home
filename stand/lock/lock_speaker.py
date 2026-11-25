@@ -14,6 +14,7 @@ import threading
 import time
 from pathlib import Path
 
+import columns
 from log_time import log_timestamp
 
 HERE = Path(__file__).resolve().parent
@@ -90,36 +91,115 @@ def _say(ip, msg):
         pass
 
 
-def _kick(ip):
+def request(ip):
+    """Кнопка «Переделать»: человек явно попросил поставить оболочку."""
+    row = columns.arm(ip)
+    platform = row.get("platform") or ""
+    if platform in columns.ANDROID:
+        _start(ip, _install_apk)
+        return row
+    if ip in _NOTED:
+        _kick(ip, force=True)
+    else:
+        columns.set_job(ip, "armed", "жду, пока колонка возьмёт прошивку")
+    return row
+
+
+def _kick(ip, force=False):
     with _GUARD:
-        if _disabled() or ip in SKIP or ip in _BUSY:
+        if ip in _BUSY:
+            return
+        if not force and (not columns.armed(ip) or ip in SKIP or _disabled()):
             return
         _BUSY.add(ip)
     threading.Thread(target=_run, args=(ip,), daemon=True).start()
 
 
-def _run(ip):
+def _start(ip, fn):
+    with _GUARD:
+        if ip in _BUSY:
+            return
+        _BUSY.add(ip)
+    threading.Thread(target=_guard, args=(ip, fn), daemon=True).start()
+
+
+def _guard(ip, fn):
     try:
-        info = _NOTED.get(ip) or {}
-        version = info.get("version") or ""
-        action = plan(ip, version, _port(ip, 2222), _state().get(ip), SKIP, _disabled())
-        if action == "skip":
-            return
-        if action == "done":
-            return
-        if action == "check" and _ssh_settled(ip):
-            _save(ip, version, "done")
-            _say(ip, "SSH и запрет обновлений уже на месте")
-            return
-        if not _wait_adb(ip, 180):
-            _say(ip, "порт 5555 не открылся, повторю на следующем запросе")
-            return
-        _install(ip, version)
+        fn(ip)
     except Exception as e:
+        columns.set_job(ip, "fail", str(e))
         _say(ip, "ошибка %r" % (e,))
     finally:
         with _GUARD:
             _BUSY.discard(ip)
+
+
+def _run(ip):
+    try:
+        info = _NOTED.get(ip) or {}
+        platform = info.get("platform") or ""
+        if platform in columns.ANDROID:
+            _install_apk(ip)
+            return
+        version = info.get("version") or ""
+        columns.set_job(ip, "work", "ставлю SSH и закрываю обновления")
+        action = plan(ip, version, _port(ip, 2222), _state().get(ip), set(), False)
+        if action == "done":
+            columns.set_job(ip, "done", "уже готово")
+            return
+        if action == "check" and _ssh_settled(ip):
+            _save(ip, version, "done")
+            columns.set_job(ip, "done", "SSH и запрет обновлений уже на месте")
+            _say(ip, "SSH и запрет обновлений уже на месте")
+            return
+        if not _wait_adb(ip, 180):
+            columns.set_job(ip, "armed", "порт 5555 ещё закрыт, повторю на следующем запросе")
+            _say(ip, "порт 5555 не открылся, повторю на следующем запросе")
+            return
+        _install(ip, version)
+    except Exception as e:
+        columns.set_job(ip, "fail", str(e))
+        _say(ip, "ошибка %r" % (e,))
+    finally:
+        with _GUARD:
+            _BUSY.discard(ip)
+
+
+def _install_apk(ip):
+    """Макс и Станция: обычный ADB, без root и без reader4."""
+    apk = os.environ.get("YSE_MAX_APK", "/opt/yse-max/station.apk")
+    if not os.path.isfile(apk):
+        columns.set_job(ip, "fail", "нет APK. Соберите yse-max и положите station.apk на сервис")
+        _say(ip, "нет APK %s" % apk)
+        return
+    columns.set_job(ip, "work", "жду ADB и ставлю приложение")
+    if not _wait_adb(ip, 180):
+        columns.set_job(ip, "fail", "порт 5555 не открылся")
+        _say(ip, "порт 5555 не открылся")
+        return
+    subprocess.run([ADB, "connect", "%s:5555" % ip], stdout=subprocess.PIPE,
+                   stderr=subprocess.STDOUT, timeout=20)
+    installed = _adb(ip, "install", "-r", "-d", "-g", apk, timeout=180)
+    text = installed.stdout.decode("utf-8", "replace")
+    if installed.returncode != 0 or "Success" not in text:
+        raise RuntimeError("приложение не встало")
+    script = (
+        "cmd appops set com.yandex.io.sdk RECORD_AUDIO deny;"
+        "pm revoke com.yandex.io.sdk android.permission.RECORD_AUDIO;"
+        "pm disable-user --user 0 com.yandex.tv.alice;"
+        "appops set com.yse.station WRITE_SETTINGS allow;"
+        "pm grant com.yse.station android.permission.READ_LOGS;"
+        "pm grant com.yse.station android.permission.ACCESS_FINE_LOCATION;"
+        "pm grant com.yse.station android.permission.ACCESS_COARSE_LOCATION;"
+        "settings put secure assistant com.yse.station/com.yse.station.VoiceAssist;"
+        "settings put secure voice_interaction_service com.yse.station/com.yse.station.VoiceAssist;"
+        "am start-foreground-service -n com.yse.station/.Web"
+    )
+    done = _adb(ip, "shell", script, timeout=60)
+    if done.returncode != 0:
+        raise RuntimeError("приложение встало, настройки не применились")
+    columns.set_job(ip, "done", "приложение поставлено")
+    _say(ip, "приложение поставлено")
 
 
 def _port(ip, port):
@@ -211,6 +291,7 @@ def _install(ip, version):
     marks = _marks(text)
     if _settled(text):
         _save(ip, version, "done")
+        columns.set_job(ip, "done", "уже закреплена")
         _say(ip, "уже закреплена, перезагрузка не нужна")
         return
     if not {"dropbear", "applier", "launchno"} <= marks:
@@ -227,6 +308,7 @@ def _install(ip, version):
     if not _wait_port(ip, 2222, 150):
         raise RuntimeError("после перезагрузки нет SSH")
     _save(ip, version, "done")
+    columns.set_job(ip, "done", "SSH жив после перезагрузки")
     _say(ip, "готово, SSH жив после перезагрузки")
 
 

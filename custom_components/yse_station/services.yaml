@@ -1,0 +1,18 @@
+say:
+  fields:
+    message:
+      required: true
+      example: "Стиральная машина закончила"
+      selector:
+        text:
+    sender:
+      required: false
+      example: "Дом"
+      selector:
+        text:
+    device_id:
+      required: false
+      selector:
+        device:
+          integration: yse_station
+          multiple: true

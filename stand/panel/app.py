@@ -163,34 +163,18 @@ def patch_platform(platform: str, patch: dict) -> dict:
     return write_root(root)
 
 
-COLUMNS = RUN / "columns.json"
-COLUMN_MODELS = {
-    "max": "Макс",
-    "station2": "Станция 2",
-    "mini2": "Мини 2",
-}
-
-
 def read_columns() -> list:
-    try:
-        data = json.loads(COLUMNS.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return []
-    return data if isinstance(data, list) else []
+    import columns
+    return columns.read_columns()
 
 
-def add_column(ip: str, model: str) -> dict:
-    ip = (ip or "").strip()
-    model = (model or "").strip().lower()
-    if not re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", ip):
-        raise ValueError("нужен IPv4")
-    if model not in COLUMN_MODELS:
-        raise ValueError("модель: max, station2 или mini2")
-    rows = [row for row in read_columns() if row.get("ip") != ip]
-    rows.append({"ip": ip, "model": model, "title": COLUMN_MODELS[model]})
-    RUN.mkdir(parents=True, exist_ok=True)
-    COLUMNS.write_text(json.dumps(rows, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return {"ok": True, "columns": rows}
+def convert_column(ip: str) -> dict:
+    for folder in ("/opt/yse-lock",):
+        if os.path.isdir(folder) and folder not in sys.path:
+            sys.path.insert(0, folder)
+    import lock_speaker
+    row = lock_speaker.request((ip or "").strip())
+    return {"ok": True, "column": row}
 
 
 def flag(path: Path) -> bool:
@@ -465,16 +449,7 @@ PAGE = """<!DOCTYPE html>
   <div class="btnwrap"><button title="Обновить статус и логи" onclick="refreshAll(true)">Обновить</button></div>
 </div>
 <h2>Колонки</h2>
-<p class="hint">Колонке в DNS указывают только IP этого сервиса и сбрасывают её. Сервис сам отвечает на все имена своим адресом.</p>
-<form id="col" class="row">
-  <input id="col-ip" placeholder="IP колонки" aria-label="IP колонки" pattern="\\d{1,3}(\\.\\d{1,3}){3}" required>
-  <select id="col-model" aria-label="Модель">
-    <option value="max">Макс</option>
-    <option value="station2">Станция 2</option>
-    <option value="mini2">Мини 2</option>
-  </select>
-  <button type="submit">Добавить</button>
-</form>
+<p class="hint">Колонка появляется сама, когда её DNS указывает на этот сервис. «Переделать» ставит нашу оболочку.</p>
 <ul id="col-list"></ul>
 <div id="tabs"></div>
 <div id="pane" class="pane">ждём ответ /api/status… (если зависло — Ctrl+F5)</div>
@@ -646,19 +621,21 @@ async function refreshAll(forceRebuild){
   const list=document.getElementById('col-list');
   if(list){
     const rows=ST.columns||[];
-    list.innerHTML=rows.map(c=>'<li>'+esc(c.ip)+' — '+esc(c.title||c.model)+'</li>').join('')||'<li class="hint">пока пусто</li>';
+    list.innerHTML=rows.map(c=>{
+      const name=esc(c.title||c.platform||'колонка');
+      const detail=esc(c.detail||'');
+      const busy=c.job==='work'||c.job==='armed';
+      const btn=c.platform?'<button type="button" '+(busy?'disabled':'')+' onclick="convertColumn(\\''+esc(c.ip)+'\\')">Переделать</button>':'';
+      return '<li>'+esc(c.ip)+' — '+name+' '+btn+' <span class="hint">'+detail+'</span></li>';
+    }).join('')||'<li class="hint">пока никто не обращался</li>';
   }
   await renderPane(!!forceRebuild);
 }
-document.getElementById('col').onsubmit=async (ev)=>{
-  ev.preventDefault();
-  const ip=document.getElementById('col-ip').value.trim();
-  const model=document.getElementById('col-model').value;
-  const r=await fetch('/api/columns',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip,model})});
+async function convertColumn(ip){
+  const r=await fetch('/api/columns/convert',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip})});
   if(!r.ok){ alert(await r.text()); return; }
-  document.getElementById('col-ip').value='';
   await refreshAll(true);
-};
+}
 refreshAll(true); setInterval(()=>refreshAll(false),8000);
 </script></body></html>"""
 
@@ -723,14 +700,14 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         path = urllib.parse.urlparse(self.path).path
         RUN.mkdir(parents=True, exist_ok=True)
-        if path == "/api/columns":
+        if path == "/api/columns/convert":
             length = int(self.headers.get("Content-Length") or 0)
             try:
                 body = json.loads(self.rfile.read(length).decode("utf-8") if length else "{}")
             except json.JSONDecodeError:
                 body = {}
             try:
-                self._json(200, add_column(str(body.get("ip", "")), str(body.get("model", ""))))
+                self._json(200, convert_column(str(body.get("ip", ""))))
             except ValueError as exc:
                 self._json(400, {"error": str(exc)})
             return
