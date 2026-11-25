@@ -47,6 +47,19 @@ HIST = 6400
 SSH = ["/storage/yse/bin/yse-ssh", SPEAKER]
 
 
+def remember(ip):
+    """Колонка сменила кабель на Wi-Fi: дальше ответ идёт на адрес этих пакетов."""
+    global SPEAKER
+    try:
+        import yse_peer
+        learned = yse_peer.note(ip)
+    except Exception:
+        return
+    if learned and learned != SPEAKER:
+        SPEAKER = learned
+        SSH[1] = learned
+
+
 def log(line):
     print(line, flush=True)
 
@@ -522,10 +535,15 @@ def serve():
 
     while True:
         try:
-            pkt, _addr = sock.recvfrom(2048)
+            pkt, addr = sock.recvfrom(2048)
         except socket.timeout:
             pkt = None
+            addr = None
         now = time.time()
+        if pkt is not None and addr and (
+            (pkt.startswith(b"YSE") and len(pkt) < 100) or len(pkt) == 4 + 320 * 2
+        ):
+            remember(addr[0])
         if now - music_at > 1.0:
             music_at = now
             ear.music = music_is_playing()

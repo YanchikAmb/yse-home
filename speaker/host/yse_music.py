@@ -26,8 +26,20 @@ ROOT = "/data/opt/yandex-station"
 ID_RE = re.compile(r"^[0-9a-f]{8}$")
 FFMPEG = "ffmpeg"
 LIBVA = "/lib/x86_64-linux-gnu/libva.so.2.1400.0"
-EQ_ADDR = (SPEAKER_IP, 18767)
 BANDS = 16
+
+
+def speaker_ip():
+    """Адрес, с которого колонка сейчас шлёт звук. Иначе YSE_SPEAKER."""
+    ip = os.environ.get("YSE_SPEAKER", "") or SPEAKER_IP
+    try:
+        import yse_peer
+        ip = yse_peer.current() or ip
+    except Exception:
+        pass
+    if ip:
+        SPEAKER[1] = ip
+    return ip
 
 pending = {}
 pending_lock = threading.Lock()
@@ -152,13 +164,23 @@ def speaker_ips():
                 text = fh.read()
         except OSError:
             continue
+        ip = ""
+        base = ""
         for line in text.splitlines():
             if line.startswith("YSE_SPEAKER="):
                 ip = line.split("=", 1)[1].strip()
-                if IP_RE.match(ip):
-                    found.append(ip)
-    if IP_RE.match(SPEAKER_IP) and SPEAKER_IP not in found:
-        found.append(SPEAKER_IP)
+            elif line.startswith("YSE_BASE="):
+                base = line.split("=", 1)[1].strip()
+        try:
+            import yse_peer
+            ip = yse_peer.current_for(base, ip)
+        except Exception:
+            pass
+        if IP_RE.match(ip):
+            found.append(ip)
+    self_ip = speaker_ip()
+    if IP_RE.match(self_ip) and self_ip not in found:
+        found.append(self_ip)
     return list(dict.fromkeys(found))
 
 
@@ -276,7 +298,7 @@ def account_loop():
         account = load_account()
         if not account:
             continue
-        result = put_account(SPEAKER_IP, account, False)
+        result = put_account(speaker_ip(), account, False)
         if result != "have":
             log("music account self %s" % result)
 
@@ -896,7 +918,7 @@ class Stream:
         )
         if os.environ.get("YSE_PLAY") == "http":
             script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "yse_pcm_push.py")
-            play_cmd = [sys.executable, script, "http://%s:18080/api/pcm" % SPEAKER_IP, "48000", "2", "music"]
+            play_cmd = [sys.executable, script, "http://%s:18080/api/pcm" % speaker_ip(), "48000", "2", "music"]
         else:
             play_cmd = SPEAKER + ["dev=plughw:0,0; grep -q softvol /etc/asound.conf 2>/dev/null && dev=default; "
                                   "aplay -D \"$dev\" -f S16_LE -r 48000 -c 2 -t raw -"]
@@ -957,7 +979,7 @@ class Stream:
                         self._eq_logged = True
                         log("eq %d" % max(levels))
                     try:
-                        self.eq.sendto(levels, EQ_ADDR)
+                        self.eq.sendto(levels, (speaker_ip(), 18767))
                     except OSError:
                         pass
         finally:
@@ -966,7 +988,7 @@ class Stream:
             except OSError:
                 pass
             try:
-                self.eq.sendto(bytes(BANDS), EQ_ADDR)
+                self.eq.sendto(bytes(BANDS), (speaker_ip(), 18767))
             except OSError:
                 pass
             if self.ff.poll() is None:

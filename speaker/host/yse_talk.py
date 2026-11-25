@@ -53,6 +53,21 @@ VOICE = {
     "svetlana": "oksana",
 }
 SPEAKER = ["/storage/yse/bin/yse-ssh", os.environ.get("YSE_SPEAKER", "192.168.209.105")]
+
+
+def speaker_ip():
+    """Адрес, с которого колонка сейчас шлёт звук. Иначе YSE_SPEAKER."""
+    ip = os.environ.get("YSE_SPEAKER", "")
+    try:
+        import yse_peer
+        ip = yse_peer.current() or ip
+    except Exception:
+        pass
+    if ip and SPEAKER[1] != ip:
+        SPEAKER[1] = ip
+    return ip
+
+
 ROOT = "/data/opt/yandex-station"
 LIBVA = "/lib/x86_64-linux-gnu/libva.so.2.1400.0"
 OWN_VOICE_URL = os.environ.get("YSE_VOICE_URL", "http://127.0.0.1:18952")
@@ -101,7 +116,7 @@ def speaker_cached(name, command, ttl=20):
 def push_http(path, data, content_type):
     if os.environ.get("YSE_PLAY") != "http":
         return
-    ip = os.environ.get("YSE_SPEAKER", "")
+    ip = speaker_ip()
     if not ip:
         return
     req = urllib.request.Request(
@@ -609,7 +624,7 @@ def play_ogg(ogg):
 def player_argv(channels):
     """Колонки на Linux слушают aplay по SSH. Макс принимает тот же PCM по HTTP."""
     if os.environ.get("YSE_PLAY") == "http":
-        ip = os.environ.get("YSE_SPEAKER", "127.0.0.1")
+        ip = speaker_ip() or "127.0.0.1"
         script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "yse_pcm_push.py")
         return [sys.executable, script, "http://%s:18080/api/pcm" % ip, "48000", str(channels), "voice"]
     return SPEAKER + [("dev=plughw:0,0; grep -q softvol /etc/asound.conf 2>/dev/null && dev=default; "
@@ -1080,7 +1095,7 @@ def column_json(method, path, payload=None, timeout=4):
     """Страница Макса. None — это не она или колонка не ответила."""
     if os.environ.get("YSE_PLAY") != "http":
         return None
-    ip = os.environ.get("YSE_SPEAKER", "")
+    ip = speaker_ip()
     if not ip:
         return None
     data = None if payload is None else json.dumps(payload).encode("utf-8")
@@ -1234,7 +1249,7 @@ def clock_words(hour, minute):
 
 def alarm_api(payload=None):
     """Будильники нашей колонки через её страницу. None — колонка не ответила."""
-    ip = os.environ.get("YSE_SPEAKER", "")
+    ip = speaker_ip()
     for _ in range(2):
         if not page_key["value"]:
             page_key["value"] = speaker_text("cat %s/token" % ROOT)
@@ -1393,7 +1408,7 @@ def alarm_volume_phrase(phrase):
 
 def alarm_page(method, path, body=None, content_type="text/plain; charset=utf-8"):
     """Страница колонки. Тот же ключ, что у ползунка громкости будильника."""
-    ip = os.environ.get("YSE_SPEAKER", "")
+    ip = speaker_ip()
     for _ in range(2):
         if not page_key["value"]:
             page_key["value"] = speaker_text("cat %s/token" % ROOT)
@@ -3567,6 +3582,13 @@ class ListenHandler(socketserver.BaseRequestHandler):
                 line += part
         except OSError:
             return
+        if line.startswith(b"YSE1"):
+            try:
+                import yse_peer
+                yse_peer.note(self.client_address[0])
+            except Exception:
+                pass
+            speaker_ip()
         fields = dict(item.split("=", 1) for item in line.decode("ascii", "replace").split()[1:] if "=" in item)
         follow = fields.get("follow") == "1"
         head = {"lag": int(fields.get("lag", "0") or 0), "chime": fields.get("chime", "1") == "1",
@@ -3655,6 +3677,7 @@ class Handler(BaseHTTPRequestHandler):
         return body if isinstance(body, dict) else {}
 
     def do_POST(self):
+        speaker_ip()
         path, _, query = self.path.partition("?")
         client = self.client_address[0]
         if path == "/v1/say":

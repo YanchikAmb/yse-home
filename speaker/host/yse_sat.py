@@ -35,6 +35,21 @@ MUSIC_URL = "http://127.0.0.1:%d" % (BASE + 1)
 ROOT = "/data/opt/yandex-station"
 SSH = ["/storage/yse/bin/yse-ssh", SPEAKER_IP]
 LISTEN_MAX = 15
+
+
+def speaker_ip():
+    """Адрес, с которого колонка сейчас шлёт звук. Иначе YSE_SPEAKER."""
+    ip = os.environ.get("YSE_SPEAKER", "") or SPEAKER_IP
+    try:
+        import yse_peer
+        ip = yse_peer.current() or ip
+    except Exception:
+        pass
+    if ip:
+        SSH[1] = ip
+    return ip
+
+
 RATE = 16000
 
 state = {"nn": "", "handler": None, "loop": None}
@@ -46,6 +61,7 @@ def log(text):
 
 def watch_nn():
     while True:
+        speaker_ip()
         try:
             proc = subprocess.run(
                 SSH + ["cat %s/settings/nn.txt 2>/dev/null" % ROOT],

@@ -80,7 +80,7 @@ DIR = "/data/opt/yandex-station"
 BUILD = os.environ.get("YSE_BUILD", "/tmp/yse-build")
 APP = "/storage/yse/app"
 HOST_SCRIPTS = ("mww_wake_listen.py", "wake_collect.py", "wake_train.py", "yse_music.py", "yse_talk.py",
-                "yse_sat.py", "yse_pcm_push.py", "yse_google_ai.py")
+                "yse_sat.py", "yse_pcm_push.py", "yse_google_ai.py", "yse_peer.py")
 UNITS = ("yse-wake@.service", "yse-music@.service", "yse-talk@.service", "yse-sat@.service")
 SPEAKER_BIN = ("housed", "keys", "ear64", "alarmd", "commandd", "eqd", "glow", "bthead",
                "ystationd", "aplay48", "ringcat", "jarvisd")
