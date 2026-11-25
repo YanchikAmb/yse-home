@@ -10,9 +10,9 @@ import subprocess
 import time
 from pathlib import Path
 
-IP = os.environ.get("YSE_SPEAKER", "192.168.209.114")
+IP = os.environ.get("YSE_SPEAKER", "")
 SPEAKER_ID = os.environ.get("YSE_SPEAKER_ID", "stolovaya")
-ADB = f"adb -s {IP}:5555"
+ADB = f"adb -s {IP}:5555" if IP else "adb"
 STATE_DIR = Path(f"/var/lib/yse-max-autoroot-{SPEAKER_ID}")
 STATE_DIR.mkdir(parents=True, exist_ok=True)
 BOOT_ID_FILE = STATE_DIR / "last_boot_id"
@@ -23,6 +23,36 @@ NDK = "/home/administrator/android-ndk-r26d"
 LOCK_BIN = Path("/home/administrator/yse-stand/lock/bin")
 MIN_UPTIME = int(os.environ.get("YSE_AUTOROOT_MIN_UP", "300"))
 POLL = int(os.environ.get("YSE_AUTOROOT_POLL", "45"))
+
+
+def refresh() -> str:
+    """Адрес из пакетов колонки. Кабель и Wi-Fi меняют его, сторож идёт следом."""
+    global IP, ADB
+    fallback = os.environ.get("YSE_SPEAKER", "").strip()
+    base = os.environ.get("YSE_BASE", "").strip()
+    if not base:
+        env = Path("/storage/yse/%s.env" % SPEAKER_ID)
+        try:
+            for line in env.read_text(encoding="utf-8").splitlines():
+                if line.startswith("YSE_BASE="):
+                    base = line.split("=", 1)[1].strip()
+        except OSError:
+            base = ""
+    try:
+        import yse_peer
+        ip = yse_peer.current_for(base, fallback) if base else fallback
+    except Exception:
+        ip = fallback
+    ip = (ip or fallback).strip()
+    if ip and ip != IP:
+        if IP:
+            run(f"adb disconnect {IP}:5555", timeout=15)
+            print("peer %s -> %s" % (IP, ip), flush=True)
+        else:
+            print("peer %s" % ip, flush=True)
+        IP = ip
+        ADB = "adb -s %s:5555" % IP
+    return IP
 
 
 def run(cmd: str, timeout: int = 120) -> tuple[int, str]:
@@ -145,10 +175,13 @@ def maybe_run_for_boot(bid: str) -> None:
 
 
 def main() -> None:
-    print(f"watchdog speaker={IP} id={SPEAKER_ID}")
+    print(f"watchdog speaker={SPEAKER_ID}")
     while True:
         try:
-            if connect():
+            refresh()
+            if not IP:
+                print("adb_not_ready")
+            elif connect():
                 bid = boot_id()
                 if bid:
                     maybe_run_for_boot(bid)
