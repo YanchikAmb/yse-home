@@ -834,6 +834,26 @@ class EquasarHandler(http.server.BaseHTTPRequestHandler):
         if self.command != "HEAD":
             self.wfile.write(payload)
 
+    def _notice_column(self):
+        """Колонка назвала модель в своём запросе. Проверка связи сюда не попадает."""
+        path = self.path.split("?")[0].lower()
+        if path in ("/generate_204", "/gen_204"):
+            return
+        plat = self._request_platform()
+        if not plat:
+            return
+        device = ""
+        try:
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            device = (q.get("device_id") or [""])[0]
+        except Exception:
+            device = ""
+        try:
+            import columns
+            columns.seen(self.client_address[0], platform=plat, device=device)
+        except Exception:
+            pass
+
     def _request_platform(self):
         """platform= из query (yandexstation_2, yandexmini, …) или пусто."""
         try:
@@ -931,6 +951,7 @@ class EquasarHandler(http.server.BaseHTTPRequestHandler):
         path_l = self.path.lower()
         host_h = (self.headers.get("Host") or "").split(":")[0].lower()
 
+        self._notice_column()
         if clean_path in ("/generate_204", "/gen_204"):
             log_local(f"{self.command} {clean_path} host={host_h or '-'} "
                       f"от {self.client_address[0]} -> 204")

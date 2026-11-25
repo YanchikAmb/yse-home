@@ -72,25 +72,53 @@ def get(ip: str) -> dict | None:
     return None
 
 
-def seen(ip: str, platform: str = "", dns_name: str = "") -> None:
-    """Колонка из DNS. Модель — из запроса обновления заводской колонки."""
+def _gateway_ips() -> set:
+    ips = set()
+    for key in ("COLUMN_GATEWAY", "YSE_GW"):
+        value = (os.environ.get(key) or "").strip()
+        if value:
+            ips.add(value)
+    return ips
+
+
+def _column_platform(platform: str) -> str:
+    if platform in TITLES or platform.startswith("yandex"):
+        return platform
+    return ""
+
+
+def seen(ip: str, platform: str = "", dns_name: str = "", device: str = "") -> None:
+    """Свой адрес — из DNS. Модель — из запроса колонки. Адрес роутера колонкой не считается."""
     ip = (ip or "").strip()
-    platform = (platform or "").strip()
+    platform = _column_platform((platform or "").strip())
     dns_name = (dns_name or "").strip()
-    if not ip or ip in _own_ips() or ip.startswith("127."):
+    device = (device or "").strip()
+    hidden = (not ip) or ip in _own_ips() or ip in _gateway_ips() or ip.startswith("127.")
+    real = "" if hidden else ip
+    if not real and not platform:
         return
     now = time.strftime("%Y-%m-%d %H:%M:%S")
     with _LOCK:
         rows = _load()
-        row = next((item for item in rows if item.get("ip") == ip), None)
+        row = None
+        if device:
+            row = next((item for item in rows if item.get("device") == device), None)
+        if row is None and real:
+            row = next((item for item in rows if item.get("ip") == real), None)
+        if row is None and hidden and platform:
+            row = next((item for item in rows if item.get("platform") == platform and not item.get("ip")), None)
         if row is None:
-            row = {"ip": ip, "platform": "", "title": "колонка", "seen": now, "job": "idle", "detail": ""}
+            row = {"ip": real, "platform": "", "title": "колонка", "seen": now, "job": "idle", "detail": ""}
             rows.append(row)
         elif row.get("seen") == now and (not platform or row.get("platform") == platform) and (
             not dns_name or row.get("dns") == dns_name
-        ):
+        ) and (not real or row.get("ip") == real):
             return
         row["seen"] = now
+        if real:
+            row["ip"] = real
+        if device:
+            row["device"] = device
         if dns_name:
             row["dns"] = dns_name
             if not row.get("detail") or str(row.get("detail", "")).startswith("DNS "):
@@ -99,7 +127,9 @@ def seen(ip: str, platform: str = "", dns_name: str = "") -> None:
             row["platform"] = platform
             row["title"] = TITLES.get(platform, platform)
             if not row.get("detail") or str(row.get("detail", "")).startswith("DNS "):
-                row["detail"] = "модель из запроса обновления"
+                row["detail"] = "модель в запросе"
+        if hidden and not row.get("ip") and row.get("detail") in ("", "модель в запросе"):
+            row["detail"] = "запрос пришёл с роутера, адрес колонки не виден"
         _save(rows)
 
 
@@ -141,6 +171,7 @@ def for_page(rows: list) -> list:
         item = dict(row)
         if not item.get("flashed"):
             item.pop("page_key", None)
+        item.pop("device", None)
         out.append(item)
     return out
 

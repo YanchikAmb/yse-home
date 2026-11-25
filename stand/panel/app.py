@@ -467,7 +467,7 @@ PAGE = """<!DOCTYPE html>
   <div class="btnwrap"><button title="Обновить статус и логи" onclick="refreshAll(true)">Обновить</button></div>
 </div>
 <h2>Колонки</h2>
-<p class="hint">Колонка появляется, когда спрашивает у этого DNS имя quasar или scbh. Заводская следом запрашивает обновление — в нём приходит модель. Прошивку сервис отдаёт после «Переделать». Уже с нашей оболочкой обновление не спрашивает: «Проверить», затем «Прошита».</p>
+<p class="hint">Колонка появляется из DNS-запроса quasar или scbh, либо из своего запроса к сервису, где уже есть модель. Заводской прошивку отдаём после «Переделать». Уже с нашей оболочкой: «Проверить», затем «Прошита».</p>
 <ul id="col-list"></ul>
 <div id="tabs"></div>
 <div id="pane" class="pane">ждём ответ /api/status… (если зависло — Ctrl+F5)</div>
@@ -644,12 +644,12 @@ async function refreshAll(forceRebuild){
       const name=esc(c.title||c.platform||'колонка');
       const detail=esc(c.detail||'');
       const busy=c.job==='work'||c.job==='armed';
-      let buttons='<button type="button" onclick="probeColumn(\\''+ip+'\\')">Проверить</button>';
-      if(c.shell&&!c.flashed) buttons+=' <button type="button" onclick="confirmColumn(\\''+ip+'\\')">Прошита</button>';
+      let buttons=ip?'<button type="button" onclick="probeColumn(\\''+ip+'\\')">Проверить</button>':'';
+      if(ip&&c.shell&&!c.flashed) buttons+=' <button type="button" onclick="confirmColumn(\\''+ip+'\\')">Прошита</button>';
       if(c.flashed) buttons+=' <span class="badge off">прошита</span>';
-      if(c.platform&&!c.flashed) buttons+=' <button type="button" '+(busy?'disabled':'')+' onclick="convertColumn(\\''+ip+'\\')">Переделать</button>';
+      if(ip&&c.platform&&!c.flashed) buttons+=' <button type="button" '+(busy?'disabled':'')+' onclick="convertColumn(\\''+ip+'\\')">Переделать</button>';
       const key=c.page_key?' Ключ страницы: <code>'+esc(c.page_key)+'</code>':'';
-      return '<li>'+ip+' — '+name+' '+buttons+' <span class="hint">'+detail+'</span>'+key+'</li>';
+      return '<li>'+(ip||'без адреса')+' — '+name+' '+buttons+' <span class="hint">'+detail+'</span>'+key+'</li>';
     }).join('')||'<li class="hint">пока никто не обращался</li>';
   }
   await renderPane(!!forceRebuild);
