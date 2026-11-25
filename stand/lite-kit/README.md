@@ -339,7 +339,7 @@ config/dnsmasq.conf.tpl                шаблон DNS для Linux/macOS
 firmware/<platform>/                   прошивка (<версия>.zip) + manifest.json
 ```
 
-Прошивка **не входит** в репозиторий — качается `install-firmware.*`.
+Прошивки лежат в корневом каталоге `firmware/`: у каждой модели архив и `manifest.json`. Архив Макса идёт через Git LFS.
 
 ---
 
